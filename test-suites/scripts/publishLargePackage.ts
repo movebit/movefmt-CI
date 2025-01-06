@@ -7,6 +7,7 @@ import fs from "fs";
 import { PathLike } from "node:fs";
 import { AptosProvider } from "../wrappers/aptosProvider";
 import { PackagePublisher } from "../wrappers/packagePublisher";
+import chalk from "chalk";
 
 const envPath = path.resolve(__dirname, "../../.env");
 dotenv.config({ path: envPath });
@@ -22,9 +23,6 @@ const parseArgs = () => {
   return args;
 };
 
-// eslint-disable-next-line import/no-commonjs
-const chalk = require("chalk");
-
 (async () => {
   // parse cmd args
   const args = parseArgs();
@@ -39,11 +37,13 @@ const chalk = require("chalk");
   }
 
   // global aptos provider
-  const aptosProvider = new AptosProvider();
+  const aptosProvider = AptosProvider.fromEnvs();
 
   // all atokens-related operations client
   const senderProfile = args.profile as string;
-  const senderAccount = Account.fromPrivateKey({ privateKey: aptosProvider.getProfilePrivateKeyByName(senderProfile) });
+  const senderAccount = Account.fromPrivateKey({
+    privateKey: aptosProvider.getProfileAccountPrivateKeyByName(senderProfile),
+  });
   const packagePublisher = new PackagePublisher(aptosProvider, senderAccount as Account, modulePath);
 
   try {

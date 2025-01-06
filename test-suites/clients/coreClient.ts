@@ -1,5 +1,5 @@
 import { AccountAddress, CommittedTransactionResponse } from "@aptos-labs/ts-sdk";
-import { BigNumber } from "ethers";
+import { BigNumber } from "@ethersproject/bignumber";
 import { AptosContractWrapperBaseClass } from "./baseClass";
 import {
   BorrowFuncAddr,

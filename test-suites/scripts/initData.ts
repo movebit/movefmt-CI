@@ -1,17 +1,12 @@
 /* eslint-disable no-console */
-import * as dotenv from "dotenv";
 import { initReserveOraclePrice } from "./initOraclePrice";
 import { configReserves } from "./configReserves";
 import { initReserves } from "./initReserves";
 import { createTokens } from "./createTokens";
 import { createRoles } from "./createRoles";
-import { initInteresRates } from "./initInterestRate";
+import { initDefaultInteresRates } from "./initInterestRate";
 import { initPoolAddressesProvider } from "./initPoolAddressesProvider";
-
-dotenv.config();
-
-// eslint-disable-next-line import/no-commonjs
-const chalk = require("chalk");
+import chalk from "chalk";
 
 (async () => {
   // step1. create roles
@@ -28,8 +23,8 @@ const chalk = require("chalk");
 
   // step3. init interest rate strategies
   console.log(chalk.yellow("---------------------------------------------"));
-  console.log(chalk.cyan("initializing interest rate strategies..."));
-  await initInteresRates();
+  console.log(chalk.cyan("initializing default interest rate strategies..."));
+  await initDefaultInteresRates();
   console.log(chalk.green("initialized interest rate strategies successfully!"));
 
   // step3. init reserves and interest rate strategies
@@ -46,13 +41,13 @@ const chalk = require("chalk");
 
   // step5. config oracle price
   console.log(chalk.yellow("---------------------------------------------"));
-  console.log(chalk.cyan("configuring reserve prices..."));
+  console.log(chalk.cyan("configuring oracle prices..."));
   await initReserveOraclePrice();
-  console.log(chalk.green("configured reserve prices successfully!"));
+  console.log(chalk.green("configured oracle prices successfully!"));
 
-  // step6. config pool addresses provider
-  console.log(chalk.yellow("---------------------------------------------"));
-  console.log(chalk.cyan("configuring pool addresses provider..."));
-  await initPoolAddressesProvider();
-  console.log(chalk.green("configured pool addresses provider successfully!"));
+  // // step6. config pool addresses provider
+  // console.log(chalk.yellow("---------------------------------------------"));
+  // console.log(chalk.cyan("configuring pool addresses provider..."));
+  // await initPoolAddressesProvider();
+  // console.log(chalk.green("configured pool addresses provider successfully!"));
 })();

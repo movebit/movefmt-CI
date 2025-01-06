@@ -1,6 +1,6 @@
 module aave_pool::staked_token {
     struct MockStakedToken has key, drop, store, copy {
-        addr: address,
+        addr: address
     }
 
     public fun staked_token(mock_staked_token: &MockStakedToken): address {
@@ -25,7 +25,7 @@ module aave_pool::staked_token {
     use std::signer;
 
     #[test(account = @aave_pool)]
-    fun test_create_mock_staked_token(account: &signer,) {
+    fun test_create_mock_staked_token(account: &signer) {
         let addr = signer::address_of(account);
 
         let mock_staked_token = create_mock_staked_token(addr);
@@ -33,20 +33,20 @@ module aave_pool::staked_token {
         assert!(mock_staked_token.addr == addr, 0);
     }
 
-    #[test(account = @aave_pool)]
-    fun test_cooldown(account: &signer,) {
+    #[test(_account = @aave_pool)]
+    fun test_cooldown(_account: &signer) {
         cooldown();
     }
 
     #[test(account = @aave_pool)]
-    fun test_redeem(account: &signer,) {
+    fun test_redeem(account: &signer) {
         let to = signer::address_of(account);
         let amount = 1;
         redeem(to, amount);
     }
 
     #[test(account = @aave_pool)]
-    fun test_claim_rewards(account: &signer,) {
+    fun test_claim_rewards(account: &signer) {
         let to = signer::address_of(account);
         let amount = 1;
         claim_rewards(to, amount);

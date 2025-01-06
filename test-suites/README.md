@@ -18,7 +18,12 @@ make init-test-profiles
 
 ```bash=
 cd test-suites
-pnpm init-data
+pnpm deploy:init-data
+```
+
+```bash=
+cd test-suites
+pnpm deploy:core-operations
 ```
 
 ## 4. Test

@@ -9,7 +9,7 @@ module aave_pool::stream {
         recipient: address,
         sender: address,
         token_address: address,
-        is_entity: bool,
+        is_entity: bool
     }
 
     public fun recipient(stream: &Stream): address {
@@ -20,8 +20,8 @@ module aave_pool::stream {
         stream.is_entity
     }
 
-    public fun get_stream(stream: &Stream)
-        : (
+    public fun get_stream(stream: &Stream):
+        (
         address, address, u256, address, u256, u256, u256, u256
     ) {
         (
@@ -62,7 +62,7 @@ module aave_pool::stream {
             recipient,
             sender,
             token_address,
-            is_entity,
+            is_entity
         }
     }
 
@@ -73,7 +73,7 @@ module aave_pool::stream {
     const TEST_FAILED: u64 = 2;
 
     #[test(account = @aave_pool)]
-    fun test_create_stream(account: &signer,) {
+    fun test_create_stream(account: &signer) {
         let deposit = 1;
         let rate_per_second = 1;
         let remaining_balance = 1;
@@ -94,7 +94,7 @@ module aave_pool::stream {
                 recipient,
                 sender,
                 token_address,
-                is_entity,
+                is_entity
             );
 
         assert!(stream.deposit == deposit, TEST_SUCCESS);
@@ -109,7 +109,7 @@ module aave_pool::stream {
     }
 
     #[test(account = @aave_pool)]
-    fun test_is_entity(account: &signer,) {
+    fun test_is_entity(account: &signer) {
         let deposit = 1;
         let rate_per_second = 1;
         let remaining_balance = 1;
@@ -130,7 +130,7 @@ module aave_pool::stream {
                 recipient,
                 sender,
                 token_address,
-                true,
+                true
             );
 
         assert!(is_entity(&stream_true) == true, TEST_SUCCESS);
@@ -145,14 +145,14 @@ module aave_pool::stream {
                 recipient,
                 sender,
                 token_address,
-                false,
+                false
             );
 
         assert!(is_entity(&stream_false) == false, TEST_SUCCESS);
     }
 
     #[test(account = @aave_pool)]
-    fun test_recipient(account: &signer,) {
+    fun test_recipient(account: &signer) {
         let deposit = 1;
         let rate_per_second = 1;
         let remaining_balance = 1;
@@ -173,14 +173,14 @@ module aave_pool::stream {
                 recipient,
                 sender,
                 token_address,
-                is_entity,
+                is_entity
             );
 
         assert!(recipient(&stream_true) == recipient, TEST_SUCCESS);
     }
 
     #[test(account = @aave_pool)]
-    fun test_get_stream(account: &signer,) {
+    fun test_get_stream(account: &signer) {
         let arg_deposit = 1;
         let arg_rate_per_second = 1;
         let arg_remaining_balance = 1;
@@ -201,7 +201,7 @@ module aave_pool::stream {
                 arg_recipient,
                 arg_sender,
                 arg_token_address,
-                arg_is_entity,
+                arg_is_entity
             );
 
         let (
@@ -227,7 +227,7 @@ module aave_pool::stream {
     }
 
     #[test(account = @aave_pool)]
-    fun test_set_remaining_balance(account: &signer,) {
+    fun test_set_remaining_balance(account: &signer) {
         let arg_deposit = 1;
         let arg_rate_per_second = 1;
         let arg_remaining_balance = 1;
@@ -248,7 +248,7 @@ module aave_pool::stream {
                 arg_recipient,
                 arg_sender,
                 arg_token_address,
-                arg_is_entity,
+                arg_is_entity
             );
 
         let (

@@ -3,15 +3,21 @@ name: Build Aptos Documentation
 on:
   pull_request:
   merge_group:
-    branches: [main]
+    branches:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
+  GITHUB_ACTIONS: true
+  APTOS_NETWORK: local
+  UPGRADE_CONTRACTS: false
+  ARTIFACTS_LEVEL: all
+  DEFAULT_FUNDER_PRIVATE_KEY: ${{ secrets.GH_DEFAULT_FUNDER_PRIVATE_KEY }}
 
 jobs:
   build-docs:
     name: Build Aptos Documentation
-    runs-on: ubuntu-latest
+    runs-on: Larger-Github-Runners
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +31,10 @@ jobs:
           echo $! > aptos_serve_pid.txt
       - name: Wait for Aptos Local Testnet to be ready
         run: sleep 20
+      - name: Set Local Aptos Workspace Config
+        run: make set-workspace-config
+      - name: Init Local Aptos Workspace Config
+        run: make init-workspace-config
       - name: Run Aptos Create Profiles
         run: make init-profiles
       - name: Create Documentation

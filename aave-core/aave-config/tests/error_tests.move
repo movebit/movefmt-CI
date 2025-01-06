@@ -1,95 +1,95 @@
 #[test_only]
 module aave_config::error_tests {
-    use aave_config::error::{
-        get_ecaller_not_pool_admin,
-        get_ecaller_not_emergency_admin,
-        get_ecaller_not_pool_or_emergency_admin,
-        get_ecaller_not_risk_or_pool_admin,
-        get_ecaller_not_asset_listing_or_pool_admin,
-        get_ecaller_not_bridge,
+    use aave_config::error_config::{
+        get_eaccount_does_not_exist,
+        get_eacl_admin_cannot_be_zero,
+        get_eaddresses_provider_already_added,
         get_eaddresses_provider_not_registered,
-        get_einvalid_addresses_provider_id,
-        get_enot_contract,
-        get_ecaller_not_pool_configurator,
-        get_ecaller_not_atoken,
-        get_einvalid_addresses_provider,
-        get_einvalid_flashloan_executor_return,
-        get_ereserve_already_added,
-        get_ereserves_storage_count_mismatch,
-        get_eno_more_reserves_allowed,
-        get_eemode_category_reserved,
-        get_einvalid_emode_category_assignment,
-        get_ereserve_liquidity_not_zero,
-        get_eflashloan_premium_invalid,
-        get_einvalid_reserve_params,
-        get_einvalid_emode_category_params,
+        get_easset_not_borrowable_in_isolation,
+        get_easset_not_listed,
+        get_eborrow_cap_exceeded,
+        get_eborrowing_not_enabled,
         get_ebridge_protocol_fee_invalid,
         get_ecaller_must_be_pool,
-        get_einvalid_mint_amount,
-        get_einvalid_burn_amount,
-        get_einvalid_amount,
-        get_ereserve_inactive,
-        get_ereserve_frozen,
-        get_ereserve_paused,
-        get_eborrowing_not_enabled,
-        get_einvalid_interest_rate_mode_selected,
-        get_ehealth_factor_lower_than_liquidation_threshold,
+        get_ecaller_not_asset_listing_or_pool_admin,
+        get_ecaller_not_atoken,
+        get_ecaller_not_bridge,
+        get_ecaller_not_emergency_admin,
+        get_ecaller_not_pool_admin,
+        get_ecaller_not_pool_configurator,
+        get_ecaller_not_pool_or_emergency_admin,
+        get_ecaller_not_risk_or_pool_admin,
+        get_ecollateral_balance_is_zero,
+        get_ecollateral_cannot_be_liquidated,
         get_ecollateral_cannot_cover_new_borrow,
         get_ecollateral_same_as_borrowing_currency,
+        get_edebt_ceiling_exceeded,
+        get_edebt_ceiling_not_zero,
+        get_eemode_category_reserved,
+        get_eflashloan_disabled,
+        get_eflashloan_premium_invalid,
+        get_ehealth_factor_lower_than_liquidation_threshold,
+        get_ehealth_factor_not_below_threshold,
+        get_einconsistent_emode_category,
+        get_einconsistent_flashloan_params,
+        get_einconsistent_params_length,
+        get_einterest_rate_rebalance_conditions_not_met,
+        get_einvalid_addresses_provider,
+        get_einvalid_addresses_provider_id,
+        get_einvalid_amount,
+        get_einvalid_borrow_cap,
+        get_einvalid_burn_amount,
+        get_einvalid_debt_ceiling,
+        get_einvalid_decimals,
+        get_einvalid_emode_category,
+        get_einvalid_emode_category_assignment,
+        get_einvalid_emode_category_params,
+        get_einvalid_expiration,
+        get_einvalid_flashloan_executor_return,
+        get_einvalid_interest_rate_mode_selected,
+        get_einvalid_liq_bonus,
+        get_einvalid_liq_threshold,
+        get_einvalid_liquidation_protocol_fee,
+        get_einvalid_ltv,
+        get_einvalid_mint_amount,
+        get_einvalid_optimal_usage_ratio,
+        get_einvalid_reserve_factor,
+        get_einvalid_reserve_index,
+        get_einvalid_reserve_params,
+        get_einvalid_signature,
+        get_einvalid_supply_cap,
+        get_einvalid_unbacked_mint_cap,
+        get_eltv_validation_failed,
         get_eno_debt_of_selected_type,
         get_eno_explicit_amount_to_repay_on_behalf,
+        get_eno_more_reserves_allowed,
         get_eno_outstanding_variable_debt,
-        get_eunderlying_balance_zero,
-        get_einterest_rate_rebalance_conditions_not_met,
-        get_ehealth_factor_not_below_threshold,
-        get_ecollateral_cannot_be_liquidated,
+        get_enot_contract,
+        get_enot_enough_available_user_balance,
+        get_eoperation_not_supported,
+        get_epool_addresses_do_not_match,
+        get_eprice_oracle_check_failed,
+        get_ereserve_already_added,
+        get_ereserve_already_initialized,
+        get_ereserve_debt_not_zero,
+        get_ereserve_frozen,
+        get_ereserve_inactive,
+        get_ereserve_liquidity_not_zero,
+        get_ereserve_paused,
+        get_ereserves_storage_count_mismatch,
+        get_esigner_and_on_behalf_of_no_same,
+        get_esiloed_borrowing_violation,
         get_especified_currency_not_borrowed_by_user,
-        get_einconsistent_flashloan_params,
-        get_eborrow_cap_exceeded,
         get_esupply_cap_exceeded,
         get_eunbacked_mint_cap_exceeded,
-        get_edebt_ceiling_exceeded,
-        get_eunderlying_claimable_rights_not_zero,
-        get_evariable_debt_supply_not_zero,
-        get_enot_enough_available_user_balance,
-        get_ecollateral_balance_is_zero,
-        get_eltv_validation_failed,
-        get_einconsistent_emode_category,
-        get_eprice_oracle_sentinel_check_failed,
-        get_easset_not_borrowable_in_isolation,
-        get_ereserve_already_initialized,
-        get_euser_in_isolation_mode_or_ltv_zero,
-        get_einvalid_ltv,
-        get_einvalid_liq_threshold,
-        get_einvalid_liq_bonus,
-        get_einvalid_decimals,
-        get_einvalid_borrow_cap,
-        get_einvalid_supply_cap,
-        get_einvalid_liquidation_protocol_fee,
-        get_einvalid_reserve_factor,
-        get_einvalid_emode_category,
-        get_einvalid_unbacked_mint_cap,
-        get_einvalid_debt_ceiling,
-        get_einvalid_reserve_index,
-        get_eacl_admin_cannot_be_zero,
-        get_einconsistent_params_length,
-        get_ezero_address_not_valid,
-        get_einvalid_expiration,
-        get_einvalid_signature,
-        get_eoperation_not_supported,
-        get_edebt_ceiling_not_zero,
-        get_easset_not_listed,
-        get_einvalid_optimal_usage_ratio,
+        get_eunderlying_balance_zero,
         get_eunderlying_cannot_be_rescued,
-        get_eaddresses_provider_already_added,
-        get_epool_addresses_do_not_match,
-        get_esiloed_borrowing_violation,
-        get_ereserve_debt_not_zero,
-        get_eflashloan_disabled,
+        get_eunderlying_claimable_rights_not_zero,
+        get_euser_in_isolation_mode_or_ltv_zero,
         get_euser_not_listed,
-        get_esigner_and_on_behalf_of_no_same,
-        get_eaccount_does_not_exist,
-        get_flashloan_payer_not_receiver,
+        get_evariable_debt_supply_not_zero,
+        get_ezero_address_not_valid,
+        get_flashloan_payer_not_receiver
     };
 
     const TEST_SUCCESS: u64 = 1;
@@ -201,8 +201,6 @@ module aave_config::error_tests {
     const ELTV_VALIDATION_FAILED: u64 = 57;
     /// Inconsistent eMode category
     const EINCONSISTENT_EMODE_CATEGORY: u64 = 58;
-    /// Price oracle sentinel validation failed
-    const EPRICE_ORACLE_SENTINEL_CHECK_FAILED: u64 = 59;
     /// Asset is not borrowable in isolation mode
     const EASSET_NOT_BORROWABLE_IN_ISOLATION: u64 = 60;
     /// Reserve has already been initialized
@@ -264,18 +262,75 @@ module aave_config::error_tests {
     const ERESERVE_DEBT_NOT_ZERO: u64 = 90;
     /// FlashLoaning for this asset is disabled
     const EFLASHLOAN_DISABLED: u64 = 91;
+
+    /// Aptos has introduced a new business logic error code range from 1001 to 2000.
+
+    /// aave_acl module error code range from 1001 to 1100.
+    /// Account is not the acl's owner.
+    const ENOT_ACL_OWNER: u64 = 1001;
+    /// Account is missing role.
+    const EROLE_MISSMATCH: u64 = 1002;
+    /// can only renounce roles for self
+    const EROLE_CAN_ONLY_RENOUNCE_SELF: u64 = 1003;
+
+    /// aave_math module error code range from 1101 to 1200.
+    /// Calculation results in overflow
+    const EOVERFLOW: u64 = 1101;
+    /// Cannot divide by zero
+    const EDIVISION_BY_ZERO: u64 = 1102;
+
+    /// aave_oracle module error code range from 1201 to 1300.
+    /// Account is not the oracle's owner.
+    const ENOT_ORACLE_OWNER: u64 = 1201;
+    const ERESOURCE_NOT_FOUND: u64 = 1202;
+
+    /// aave_oracle
+    /// Not an asset listing or a pool admin error
+    const ENOT_ASSET_LISTING_OR_POOL_ADMIN: u64 = 1203;
+    /// base currency not set
+    const EBASE_CURRENCY_NOT_SET: u64 = 1204;
+    /// identical base currency already added
+    const EIDENTICAL_BASE_CURRENCY_ALREADY_ADDED: u64 = 1205;
+    /// missing price feed identifier
+    const EMISSING_PRICE_FEED_IDENTIFIER: u64 = 1206;
+    /// missing price vaa
+    const EMISSING_PRICE_VAA: u64 = 1207;
+    /// not existing price feed identifier
+    const EPRICE_FEED_IDENTIFIER_NOT_EXIST: u64 = 1208;
+
+    /// aave_rate module error code range from 1301 to 1400.
+    /// Account is not the rate's owner.
+    const ENOT_RATE_OWNER: u64 = 1301;
+
+    /// aave_pool module error code range from 1401 to 1500.
+    /// Account is not the pool's owner.
+    const ENOT_POOL_OWNER: u64 = 1401;
     /// User is not listed
-    const EUSER_NOT_LISTED: u64 = 92;
-
+    const EUSER_NOT_LISTED: u64 = 1402;
     /// Mismatch of reserves count in storage
-    const ERESERVES_STORAGE_COUNT_MISMATCH: u64 = 93;
+    const ERESERVES_STORAGE_COUNT_MISMATCH: u64 = 1403;
     /// The person who signed must be consistent with on_behalf_of
-    const ESIGNER_AND_ON_BEHALF_OF_NO_SAME: u64 = 94;
+    const ESIGNER_AND_ON_BEHALF_OF_NO_SAME: u64 = 1404;
     /// Account does not exist
-    const EACCOUNT_DOES_NOT_EXIST: u64 = 95;
-
+    const EACCOUNT_DOES_NOT_EXIST: u64 = 1405;
     /// Flashloan payer is different from the flashloan receiver
-    const EFLASHLOAN_PAYER_NOT_RECEIVER: u64 = 95;
+    const EFLASHLOAN_PAYER_NOT_RECEIVER: u64 = 1406;
+    /// Price oracle validation failed
+    const EPRICE_ORACLE_CHECK_FAILED: u64 = 1407;
+    /// reserve list not initialized
+    const ERESERVE_LIST_NOT_INITIALIZED: u64 = 1408;
+
+    /// aave_tokens
+    /// Token already exists
+    const ETOKEN_ALREADY_EXISTS: u64 = 1409;
+    /// Token not exist
+    const ETOKEN_NOT_EXIST: u64 = 1410;
+    /// Resource not exist
+    const ERESOURCE_NOT_EXIST: u64 = 1411;
+    /// Token name already exist
+    const ETOKEN_NAME_ALREADY_EXIST: u64 = 1412;
+    /// Token symbol already exist
+    const ETOKEN_SYMBOL_ALREADY_EXIST: u64 = 1413;
 
     #[test]
     fun test_get_ecaller_not_pool_admin() {
@@ -285,15 +340,17 @@ module aave_config::error_tests {
     #[test]
     fun test_get_ecaller_not_emergency_admin() {
         assert!(
-            get_ecaller_not_emergency_admin() == ECALLER_NOT_EMERGENCY_ADMIN, TEST_SUCCESS
+            get_ecaller_not_emergency_admin() == ECALLER_NOT_EMERGENCY_ADMIN,
+            TEST_SUCCESS
         );
     }
 
     #[test]
     fun test_get_ecaller_not_pool_or_emergency_admin() {
         assert!(
-            get_ecaller_not_pool_or_emergency_admin() == ECALLER_NOT_POOL_OR_EMERGENCY_ADMIN,
-            TEST_SUCCESS,
+            get_ecaller_not_pool_or_emergency_admin()
+                == ECALLER_NOT_POOL_OR_EMERGENCY_ADMIN,
+            TEST_SUCCESS
         );
     }
 
@@ -301,7 +358,7 @@ module aave_config::error_tests {
     fun test_get_ecaller_not_risk_or_pool_admin() {
         assert!(
             get_ecaller_not_risk_or_pool_admin() == ECALLER_NOT_RISK_OR_POOL_ADMIN,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -310,7 +367,7 @@ module aave_config::error_tests {
         assert!(
             get_ecaller_not_asset_listing_or_pool_admin()
                 == ECALLER_NOT_ASSET_LISTING_OR_POOL_ADMIN,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -322,8 +379,9 @@ module aave_config::error_tests {
     #[test]
     fun test_get_eaddresses_provider_not_registered() {
         assert!(
-            get_eaddresses_provider_not_registered() == EADDRESSES_PROVIDER_NOT_REGISTERED,
-            TEST_SUCCESS,
+            get_eaddresses_provider_not_registered()
+                == EADDRESSES_PROVIDER_NOT_REGISTERED,
+            TEST_SUCCESS
         );
     }
 
@@ -331,7 +389,7 @@ module aave_config::error_tests {
     fun test_get_einvalid_addresses_provider_id() {
         assert!(
             get_einvalid_addresses_provider_id() == EINVALID_ADDRESSES_PROVIDER_ID,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -344,7 +402,7 @@ module aave_config::error_tests {
     fun test_get_ecaller_not_pool_configurator() {
         assert!(
             get_ecaller_not_pool_configurator() == ECALLER_NOT_POOL_CONFIGURATOR,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -356,15 +414,17 @@ module aave_config::error_tests {
     #[test]
     fun test_get_einvalid_addresses_provider() {
         assert!(
-            get_einvalid_addresses_provider() == EINVALID_ADDRESSES_PROVIDER, TEST_SUCCESS
+            get_einvalid_addresses_provider() == EINVALID_ADDRESSES_PROVIDER,
+            TEST_SUCCESS
         );
     }
 
     #[test]
     fun test_get_einvalid_flashloan_executor_return() {
         assert!(
-            get_einvalid_flashloan_executor_return() == EINVALID_FLASHLOAN_EXECUTOR_RETURN,
-            TEST_SUCCESS,
+            get_einvalid_flashloan_executor_return()
+                == EINVALID_FLASHLOAN_EXECUTOR_RETURN,
+            TEST_SUCCESS
         );
     }
 
@@ -377,7 +437,7 @@ module aave_config::error_tests {
     fun test_get_ereserves_storage_count_mismatch() {
         assert!(
             get_ereserves_storage_count_mismatch() == ERESERVES_STORAGE_COUNT_MISMATCH,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -396,22 +456,25 @@ module aave_config::error_tests {
     #[test]
     fun test_get_einvalid_emode_category_assignment() {
         assert!(
-            get_einvalid_emode_category_assignment() == EINVALID_EMODE_CATEGORY_ASSIGNMENT,
-            TEST_SUCCESS,
+            get_einvalid_emode_category_assignment()
+                == EINVALID_EMODE_CATEGORY_ASSIGNMENT,
+            TEST_SUCCESS
         );
     }
 
     #[test]
     fun test_get_ereserve_liquidity_not_zero() {
         assert!(
-            get_ereserve_liquidity_not_zero() == ERESERVE_LIQUIDITY_NOT_ZERO, TEST_SUCCESS
+            get_ereserve_liquidity_not_zero() == ERESERVE_LIQUIDITY_NOT_ZERO,
+            TEST_SUCCESS
         );
     }
 
     #[test]
     fun test_get_eflashloan_premium_invalid() {
         assert!(
-            get_eflashloan_premium_invalid() == EFLASHLOAN_PREMIUM_INVALID, TEST_SUCCESS
+            get_eflashloan_premium_invalid() == EFLASHLOAN_PREMIUM_INVALID,
+            TEST_SUCCESS
         );
     }
 
@@ -424,7 +487,7 @@ module aave_config::error_tests {
     fun test_get_einvalid_emode_category_params() {
         assert!(
             get_einvalid_emode_category_params() == EINVALID_EMODE_CATEGORY_PARAMS,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -432,7 +495,7 @@ module aave_config::error_tests {
     fun test_get_ebridge_protocol_fee_invalid() {
         assert!(
             get_ebridge_protocol_fee_invalid() == EBRIDGE_PROTOCOL_FEE_INVALID,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -479,8 +542,9 @@ module aave_config::error_tests {
     #[test]
     fun test_get_enot_enough_available_user_balance() {
         assert!(
-            get_enot_enough_available_user_balance() == ENOT_ENOUGH_AVAILABLE_USER_BALANCE,
-            TEST_SUCCESS,
+            get_enot_enough_available_user_balance()
+                == ENOT_ENOUGH_AVAILABLE_USER_BALANCE,
+            TEST_SUCCESS
         );
     }
 
@@ -489,14 +553,15 @@ module aave_config::error_tests {
         assert!(
             get_einvalid_interest_rate_mode_selected()
                 == EINVALID_INTEREST_RATE_MODE_SELECTED,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
     #[test]
     fun test_get_ecollateral_balance_is_zero() {
         assert!(
-            get_ecollateral_balance_is_zero() == ECOLLATERAL_BALANCE_IS_ZERO, TEST_SUCCESS
+            get_ecollateral_balance_is_zero() == ECOLLATERAL_BALANCE_IS_ZERO,
+            TEST_SUCCESS
         );
     }
 
@@ -505,15 +570,16 @@ module aave_config::error_tests {
         assert!(
             get_ehealth_factor_lower_than_liquidation_threshold()
                 == EHEALTH_FACTOR_LOWER_THAN_LIQUIDATION_THRESHOLD,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
     #[test]
     fun test_get_ecollateral_cannot_cover_new_borrow() {
         assert!(
-            get_ecollateral_cannot_cover_new_borrow() == ECOLLATERAL_CANNOT_COVER_NEW_BORROW,
-            TEST_SUCCESS,
+            get_ecollateral_cannot_cover_new_borrow()
+                == ECOLLATERAL_CANNOT_COVER_NEW_BORROW,
+            TEST_SUCCESS
         );
     }
 
@@ -522,7 +588,7 @@ module aave_config::error_tests {
         assert!(
             get_ecollateral_same_as_borrowing_currency()
                 == ECOLLATERAL_SAME_AS_BORROWING_CURRENCY,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -538,7 +604,7 @@ module aave_config::error_tests {
         assert!(
             get_eno_explicit_amount_to_repay_on_behalf()
                 == ENO_EXPLICIT_AMOUNT_TO_REPAY_ON_BEHALF,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -546,7 +612,7 @@ module aave_config::error_tests {
     fun test_get_eno_outstanding_variable_debt() {
         assert!(
             get_eno_outstanding_variable_debt() == ENO_OUTSTANDING_VARIABLE_DEBT,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -560,15 +626,16 @@ module aave_config::error_tests {
         assert!(
             get_einterest_rate_rebalance_conditions_not_met()
                 == EINTEREST_RATE_REBALANCE_CONDITIONS_NOT_MET,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
     #[test]
     fun test_get_ehealth_factor_not_below_threshold() {
         assert!(
-            get_ehealth_factor_not_below_threshold() == EHEALTH_FACTOR_NOT_BELOW_THRESHOLD,
-            TEST_SUCCESS,
+            get_ehealth_factor_not_below_threshold()
+                == EHEALTH_FACTOR_NOT_BELOW_THRESHOLD,
+            TEST_SUCCESS
         );
     }
 
@@ -576,7 +643,7 @@ module aave_config::error_tests {
     fun test_get_ecollateral_cannot_be_liquidated() {
         assert!(
             get_ecollateral_cannot_be_liquidated() == ECOLLATERAL_CANNOT_BE_LIQUIDATED,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -585,7 +652,7 @@ module aave_config::error_tests {
         assert!(
             get_especified_currency_not_borrowed_by_user()
                 == ESPECIFIED_CURRENCY_NOT_BORROWED_BY_USER,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -593,7 +660,7 @@ module aave_config::error_tests {
     fun test_get_einconsistent_flashloan_params() {
         assert!(
             get_einconsistent_flashloan_params() == EINCONSISTENT_FLASHLOAN_PARAMS,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -610,7 +677,8 @@ module aave_config::error_tests {
     #[test]
     fun test_get_eunbacked_mint_cap_exceededd() {
         assert!(
-            get_eunbacked_mint_cap_exceeded() == EUNBACKED_MINT_CAP_EXCEEDED, TEST_SUCCESS
+            get_eunbacked_mint_cap_exceeded() == EUNBACKED_MINT_CAP_EXCEEDED,
+            TEST_SUCCESS
         );
     }
 
@@ -624,7 +692,7 @@ module aave_config::error_tests {
         assert!(
             get_eunderlying_claimable_rights_not_zero()
                 == EUNDERLYING_CLAIMABLE_RIGHTS_NOT_ZERO,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -632,7 +700,7 @@ module aave_config::error_tests {
     fun test_get_evariable_debt_supply_not_zero() {
         assert!(
             get_evariable_debt_supply_not_zero() == EVARIABLE_DEBT_SUPPLY_NOT_ZERO,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -645,23 +713,16 @@ module aave_config::error_tests {
     fun test_get_einconsistent_emode_category() {
         assert!(
             get_einconsistent_emode_category() == EINCONSISTENT_EMODE_CATEGORY,
-            TEST_SUCCESS,
-        );
-    }
-
-    #[test]
-    fun test_get_eprice_oracle_sentinel_check_failed() {
-        assert!(
-            get_eprice_oracle_sentinel_check_failed() == EPRICE_ORACLE_SENTINEL_CHECK_FAILED,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
     #[test]
     fun test_get_easset_not_borrowable_in_isolation() {
         assert!(
-            get_easset_not_borrowable_in_isolation() == EASSET_NOT_BORROWABLE_IN_ISOLATION,
-            TEST_SUCCESS,
+            get_easset_not_borrowable_in_isolation()
+                == EASSET_NOT_BORROWABLE_IN_ISOLATION,
+            TEST_SUCCESS
         );
     }
 
@@ -669,15 +730,16 @@ module aave_config::error_tests {
     fun test_get_ereserve_already_initialized() {
         assert!(
             get_ereserve_already_initialized() == ERESERVE_ALREADY_INITIALIZED,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
     #[test]
     fun test_get_euser_in_isolation_mode_or_ltv_zero() {
         assert!(
-            get_euser_in_isolation_mode_or_ltv_zero() == EUSER_IN_ISOLATION_MODE_OR_LTV_ZERO,
-            TEST_SUCCESS,
+            get_euser_in_isolation_mode_or_ltv_zero()
+                == EUSER_IN_ISOLATION_MODE_OR_LTV_ZERO,
+            TEST_SUCCESS
         );
     }
 
@@ -714,8 +776,9 @@ module aave_config::error_tests {
     #[test]
     fun test_get_einvalid_liquidation_protocol_fee() {
         assert!(
-            get_einvalid_liquidation_protocol_fee() == EINVALID_LIQUIDATION_PROTOCOL_FEE,
-            TEST_SUCCESS,
+            get_einvalid_liquidation_protocol_fee()
+                == EINVALID_LIQUIDATION_PROTOCOL_FEE,
+            TEST_SUCCESS
         );
     }
 
@@ -727,7 +790,8 @@ module aave_config::error_tests {
     #[test]
     fun test_get_einvalid_unbacked_mint_cap() {
         assert!(
-            get_einvalid_unbacked_mint_cap() == EINVALID_UNBACKED_MINT_CAP, TEST_SUCCESS
+            get_einvalid_unbacked_mint_cap() == EINVALID_UNBACKED_MINT_CAP,
+            TEST_SUCCESS
         );
     }
 
@@ -751,7 +815,8 @@ module aave_config::error_tests {
     #[test]
     fun test_get_einconsistent_params_length() {
         assert!(
-            get_einconsistent_params_length() == EINCONSISTENT_PARAMS_LENGTH, TEST_SUCCESS
+            get_einconsistent_params_length() == EINCONSISTENT_PARAMS_LENGTH,
+            TEST_SUCCESS
         );
     }
 
@@ -789,7 +854,7 @@ module aave_config::error_tests {
     fun test_get_einvalid_optimal_usage_ratio() {
         assert!(
             get_einvalid_optimal_usage_ratio() == EINVALID_OPTIMAL_USAGE_RATIO,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -797,15 +862,16 @@ module aave_config::error_tests {
     fun test_get_eunderlying_cannot_be_rescued() {
         assert!(
             get_eunderlying_cannot_be_rescued() == EUNDERLYING_CANNOT_BE_RESCUED,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
     #[test]
     fun test_get_eaddresses_provider_already_added() {
         assert!(
-            get_eaddresses_provider_already_added() == EADDRESSES_PROVIDER_ALREADY_ADDED,
-            TEST_SUCCESS,
+            get_eaddresses_provider_already_added()
+                == EADDRESSES_PROVIDER_ALREADY_ADDED,
+            TEST_SUCCESS
         );
     }
 
@@ -813,14 +879,15 @@ module aave_config::error_tests {
     fun test_get_epool_addresses_do_not_match() {
         assert!(
             get_epool_addresses_do_not_match() == EPOOL_ADDRESSES_DO_NOT_MATCH,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
     #[test]
     fun test_get_esiloed_borrowing_violation() {
         assert!(
-            get_esiloed_borrowing_violation() == ESILOED_BORROWING_VIOLATION, TEST_SUCCESS
+            get_esiloed_borrowing_violation() == ESILOED_BORROWING_VIOLATION,
+            TEST_SUCCESS
         );
     }
 
@@ -843,7 +910,7 @@ module aave_config::error_tests {
     fun test_get_esigner_and_on_behalf_of_no_same() {
         assert!(
             get_esigner_and_on_behalf_of_no_same() == ESIGNER_AND_ON_BEHALF_OF_NO_SAME,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -856,12 +923,20 @@ module aave_config::error_tests {
     fun test_get_flashloan_payer_not_receiver() {
         assert!(
             get_flashloan_payer_not_receiver() == EFLASHLOAN_PAYER_NOT_RECEIVER,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
     #[test]
     fun test_get_einvalid_liq_bonus() {
         assert!(get_einvalid_liq_bonus() == EINVALID_LIQ_BONUS, TEST_SUCCESS);
+    }
+
+    #[test]
+    fun test_get_price_oracle_check_failed() {
+        assert!(
+            get_eprice_oracle_check_failed() == EPRICE_ORACLE_CHECK_FAILED,
+            TEST_SUCCESS
+        );
     }
 }

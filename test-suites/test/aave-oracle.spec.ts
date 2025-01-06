@@ -1,4 +1,4 @@
-import { BigNumber } from "ethers";
+import { BigNumber } from "@ethersproject/bignumber";
 import { initializeMakeSuite, testEnv } from "../configs/config";
 import { OracleManager } from "../configs/oracle";
 import { oneEther } from "../helpers/constants";
@@ -14,7 +14,7 @@ describe("AaveOracle", () => {
     const { weth } = testEnv;
     const sourcePrice = "100";
 
-    const oracleClient = new OracleClient(new AptosProvider(), OracleManager);
+    const oracleClient = new OracleClient(AptosProvider.fromEnvs(), OracleManager);
     await oracleClient.setAssetPrice(weth, BigNumber.from(sourcePrice));
 
     const newPrice = await oracleClient.getAssetPrice(weth);
@@ -25,7 +25,7 @@ describe("AaveOracle", () => {
     const { weth } = testEnv;
     const fallbackPrice = oneEther.toString();
 
-    const oracleClient = new OracleClient(new AptosProvider(), OracleManager);
+    const oracleClient = new OracleClient(AptosProvider.fromEnvs(), OracleManager);
     await oracleClient.setAssetPrice(weth, BigNumber.from(fallbackPrice));
 
     const newPrice = await oracleClient.getAssetPrice(weth);

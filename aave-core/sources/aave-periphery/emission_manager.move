@@ -8,9 +8,9 @@ module aave_pool::emission_manager {
         ExtendRef as ObjExtendRef,
         Object,
         ObjectGroup,
-        TransferRef as ObjectTransferRef,
+        TransferRef as ObjectTransferRef
     };
-    use aave_mock_oracle::oracle::RewardOracle;
+    use aave_oracle::reward_oracle::RewardOracle;
     use aave_pool::rewards_controller::Self;
     use aave_pool::transfer_strategy::{
         check_is_emission_admin,
@@ -31,7 +31,7 @@ module aave_pool::emission_manager {
         emission_admins: SmartTable<address, address>,
         extend_ref: ObjExtendRef,
         transfer_ref: ObjectTransferRef,
-        rewards_controller: address,
+        rewards_controller: address
     }
 
     #[event]
@@ -45,7 +45,7 @@ module aave_pool::emission_manager {
         assert!(account == @aave_acl, ENOT_MANAGEMENT);
     }
 
-    public fun initialize(sender: &signer, rewards_controller: address,) {
+    public fun initialize(sender: &signer, rewards_controller: address) {
         let state_object_constructor_ref =
             &object::create_named_object(sender, EMISSION_MANAGER_NAME);
         let state_object_signer = &object::generate_signer(state_object_constructor_ref);
@@ -56,8 +56,8 @@ module aave_pool::emission_manager {
                 emission_admins: smart_table::new<address, address>(),
                 transfer_ref: object::generate_transfer_ref(state_object_constructor_ref),
                 extend_ref: object::generate_extend_ref(state_object_constructor_ref),
-                rewards_controller,
-            },
+                rewards_controller
+            }
         );
     }
 
@@ -82,7 +82,7 @@ module aave_pool::emission_manager {
             assert!(
                 *smart_table::borrow(&emission_manager_data.emission_admins, reward)
                     == signer::address_of(account),
-                ONLY_EMISSION_ADMIN,
+                ONLY_EMISSION_ADMIN
             );
         };
         rewards_controller::configure_assets(
@@ -93,7 +93,7 @@ module aave_pool::emission_manager {
     public fun set_pull_rewards_transfer_strategy(
         caller: &signer,
         reward: address,
-        pull_rewards_transfer_strategy: PullRewardsTransferStrategy,
+        pull_rewards_transfer_strategy: PullRewardsTransferStrategy
     ) acquires EmissionManagerData {
         check_is_emission_admin(reward);
 
@@ -103,14 +103,14 @@ module aave_pool::emission_manager {
             caller,
             reward,
             pull_rewards_transfer_strategy,
-            emission_manager_data.rewards_controller,
+            emission_manager_data.rewards_controller
         );
     }
 
     public fun set_staked_token_transfer_strategy(
         caller: &signer,
         reward: address,
-        staked_token_transfer_strategy: StakedTokenTransferStrategy,
+        staked_token_transfer_strategy: StakedTokenTransferStrategy
     ) acquires EmissionManagerData {
         check_is_emission_admin(reward);
 
@@ -120,7 +120,7 @@ module aave_pool::emission_manager {
             caller,
             reward,
             staked_token_transfer_strategy,
-            emission_manager_data.rewards_controller,
+            emission_manager_data.rewards_controller
         );
     }
 
@@ -134,12 +134,15 @@ module aave_pool::emission_manager {
             caller,
             reward,
             reward_oracle,
-            emission_manager_data.rewards_controller,
+            emission_manager_data.rewards_controller
         );
     }
 
     public fun set_distribution_end(
-        caller: &signer, asset: address, reward: address, new_distribution_end: u32
+        caller: &signer,
+        asset: address,
+        reward: address,
+        new_distribution_end: u32
     ) acquires EmissionManagerData {
         check_is_emission_admin(reward);
 
@@ -150,7 +153,7 @@ module aave_pool::emission_manager {
             asset,
             reward,
             new_distribution_end,
-            emission_manager_data.rewards_controller,
+            emission_manager_data.rewards_controller
         );
     }
 
@@ -158,7 +161,7 @@ module aave_pool::emission_manager {
         caller: &signer,
         asset: address,
         rewards: vector<address>,
-        new_emissions_per_second: vector<u128>,
+        new_emissions_per_second: vector<u128>
     ) acquires EmissionManagerData {
         let emission_manager_data =
             borrow_global_mut<EmissionManagerData>(emission_manager_address());
@@ -166,9 +169,9 @@ module aave_pool::emission_manager {
             assert!(
                 *smart_table::borrow(
                     &emission_manager_data.emission_admins,
-                    *vector::borrow(&rewards, i),
+                    *vector::borrow(&rewards, i)
                 ) == signer::address_of(caller),
-                ONLY_EMISSION_ADMIN,
+                ONLY_EMISSION_ADMIN
             );
         };
         rewards_controller::set_emission_per_second(
@@ -176,7 +179,7 @@ module aave_pool::emission_manager {
             asset,
             rewards,
             new_emissions_per_second,
-            emission_manager_data.rewards_controller,
+            emission_manager_data.rewards_controller
         );
     }
 
@@ -200,8 +203,12 @@ module aave_pool::emission_manager {
             borrow_global_mut<EmissionManagerData>(emission_manager_address());
 
         let old_admin =
-            *smart_table::borrow(&emission_manager_data.emission_admins, reward);
-        smart_table::upsert(&mut emission_manager_data.emission_admins, reward, new_admin);
+            *smart_table::borrow_with_default(
+                &emission_manager_data.emission_admins, reward, &new_admin
+            );
+        smart_table::upsert(
+            &mut emission_manager_data.emission_admins, reward, new_admin
+        );
         event::emit(EmissionAdminUpdated { reward, old_admin, new_admin });
     }
 

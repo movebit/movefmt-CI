@@ -1,26 +1,26 @@
 #[test_only]
 module aave_math::wad_ray_math_tests {
+    use aave_config::error_config::{EOVERFLOW, EDIVISION_BY_ZERO};
     use aave_math::wad_ray_math::{
-        ray,
-        wad,
-        half_wad,
-        half_ray,
-        wad_mul,
-        wad_div,
-        ray_mul,
-        ray_div,
-        ray_to_wad,
-        wad_to_ray,
         get_half_ray_for_testing,
         get_half_wad_for_testing,
         get_ray_for_testing,
+        get_u256_max_for_testing,
         get_wad_for_testing,
         get_wad_ray_ratio_for_testing,
-        get_u256_max_for_testing
+        half_ray,
+        half_wad,
+        ray,
+        ray_div,
+        ray_mul,
+        ray_to_wad,
+        wad,
+        wad_div,
+        wad_mul,
+        wad_to_ray
     };
 
     const TEST_SUCCESS: u64 = 1;
-    const TEST_FAILED: u64 = 2;
 
     #[test]
     fun test_getters() {
@@ -41,10 +41,11 @@ module aave_math::wad_ray_math_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = 1, location = aave_math::wad_ray_math)]
+    #[expected_failure(abort_code = EOVERFLOW, location = aave_math::wad_ray_math)]
     fun test_wad_overflow_mult() {
         let b = 13265462389132757665657;
-        let tooLargeA = (get_u256_max_for_testing() - get_half_wad_for_testing()) / b + 1;
+        let tooLargeA = (get_u256_max_for_testing() - get_half_wad_for_testing()) / b
+            + 1;
         wad_mul(tooLargeA, b);
     }
 
@@ -58,17 +59,18 @@ module aave_math::wad_ray_math_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = 2, location = aave_math::wad_ray_math)]
+    #[expected_failure(abort_code = EDIVISION_BY_ZERO, location = aave_math::wad_ray_math)]
     fun test_wad_div_by_zero() {
         let a = 134534543232342353231234;
         wad_div(a, 0);
     }
 
     #[test]
-    #[expected_failure(abort_code = 1, location = aave_math::wad_ray_math)]
+    #[expected_failure(abort_code = EOVERFLOW, location = aave_math::wad_ray_math)]
     fun test_wad_div_overflow() {
         let b = 13265462389132757665657;
-        let tooLargeA = (get_u256_max_for_testing() - b / 2) / get_wad_for_testing() + 1;
+        let tooLargeA = (get_u256_max_for_testing() - b / 2) / get_wad_for_testing()
+            + 1;
         wad_div(tooLargeA, b);
     }
 
@@ -83,10 +85,11 @@ module aave_math::wad_ray_math_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = 1, location = aave_math::wad_ray_math)]
+    #[expected_failure(abort_code = EOVERFLOW, location = aave_math::wad_ray_math)]
     fun test_ray_overflow_mult() {
         let b = 13265462389132757665657;
-        let tooLargeA = (get_u256_max_for_testing() - get_half_ray_for_testing()) / b + 1;
+        let tooLargeA = (get_u256_max_for_testing() - get_half_ray_for_testing()) / b
+            + 1;
         ray_mul(tooLargeA, b);
     }
 
@@ -100,17 +103,18 @@ module aave_math::wad_ray_math_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = 2, location = aave_math::wad_ray_math)]
+    #[expected_failure(abort_code = EDIVISION_BY_ZERO, location = aave_math::wad_ray_math)]
     fun test_ray_div_by_zero() {
         let a = 134534543232342353231234;
         ray_div(a, 0);
     }
 
     #[test]
-    #[expected_failure(abort_code = 1, location = aave_math::wad_ray_math)]
+    #[expected_failure(abort_code = EOVERFLOW, location = aave_math::wad_ray_math)]
     fun test_ray_div_overflow() {
         let b = 13265462389132757665657;
-        let tooLargeA = (get_u256_max_for_testing() - b / 2) / get_ray_for_testing() + 1;
+        let tooLargeA = (get_u256_max_for_testing() - b / 2) / get_ray_for_testing()
+            + 1;
         ray_div(tooLargeA, b);
     }
 
@@ -120,7 +124,8 @@ module aave_math::wad_ray_math_tests {
         let x = ray_to_wad(ray);
         assert!(x == 1 * get_wad_for_testing(), TEST_SUCCESS);
 
-        let round_down = get_ray_for_testing() + (get_wad_ray_ratio_for_testing() / 2) - 1;
+        let round_down = get_ray_for_testing() + (get_wad_ray_ratio_for_testing() / 2)
+            - 1;
         let x = ray_to_wad(round_down);
         assert!(x == 1000000000000000000, TEST_SUCCESS);
 
@@ -128,12 +133,12 @@ module aave_math::wad_ray_math_tests {
         let x = ray_to_wad(round_up);
         assert!(x == 1000000000000000001, TEST_SUCCESS);
 
-        let too_large = get_u256_max_for_testing() - (get_wad_ray_ratio_for_testing() / 2)
-            + 1;
+        let too_large = get_u256_max_for_testing()
+            - (get_wad_ray_ratio_for_testing() / 2) + 1;
         let x = ray_to_wad(too_large);
         assert!(
             x == 115792089237316195423570985008687907853269984665640564039457584007913,
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 
@@ -147,7 +152,8 @@ module aave_math::wad_ray_math_tests {
     #[test]
     #[expected_failure]
     fun test_wad_to_ray_overflow() {
-        let too_large = get_u256_max_for_testing() / get_wad_ray_ratio_for_testing() + 1;
+        let too_large = get_u256_max_for_testing() / get_wad_ray_ratio_for_testing()
+            + 1;
         wad_to_ray(too_large);
     }
 }

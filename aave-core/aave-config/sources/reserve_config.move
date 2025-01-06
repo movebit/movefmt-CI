@@ -1,8 +1,8 @@
 /// @title ReserveConfiguration module
 /// @author Aave
 /// @notice Implements the bitmap logic to handle the reserve configuration
-module aave_config::reserve {
-    use aave_config::error as error_config;
+module aave_config::reserve_config {
+    use aave_config::error_config;
     use aave_config::helper;
 
     const LTV_MASK: u256 =
@@ -98,7 +98,7 @@ module aave_config::reserve {
         /// bit 176-211 unbacked mint cap in whole tokens, unbackedMintCap == 0 => minting disabled
         /// bit 212-251 debt ceiling for isolation mode with (ReserveConfigurationMap::DEBT_CEILING_DECIMALS) decimals
         /// bit 252-255 unused
-        data: u256,
+        data: u256
     }
 
     /// @notice init the reserve configuration
@@ -129,10 +129,11 @@ module aave_config::reserve {
     ) {
         assert!(
             liquidation_threshold <= MAX_VALID_LIQUIDATION_THRESHOLD,
-            error_config::get_einvalid_liq_threshold(),
+            error_config::get_einvalid_liq_threshold()
         );
         self.data = (self.data & LIQUIDATION_THRESHOLD_MASK)
-            |(liquidation_threshold << (LIQUIDATION_THRESHOLD_START_BIT_POSITION as u8))
+            | (liquidation_threshold
+                << (LIQUIDATION_THRESHOLD_START_BIT_POSITION as u8))
     }
 
     /// @notice Gets the liquidation threshold of the reserve
@@ -151,10 +152,10 @@ module aave_config::reserve {
     ) {
         assert!(
             liquidation_bonus <= MAX_VALID_LIQUIDATION_BONUS,
-            error_config::get_einvalid_liq_bonus(),
+            error_config::get_einvalid_liq_bonus()
         );
         self.data = (self.data & LIQUIDATION_BONUS_MASK)
-            |(liquidation_bonus << (LIQUIDATION_BONUS_START_BIT_POSITION as u8))
+            | (liquidation_bonus << (LIQUIDATION_BONUS_START_BIT_POSITION as u8))
     }
 
     /// @notice Gets the liquidation bonus of the reserve
@@ -173,7 +174,7 @@ module aave_config::reserve {
     ) {
         assert!(decimals <= MAX_VALID_DECIMALS, error_config::get_einvalid_decimals());
         self.data = (self.data & DECIMALS_MASK)
-            |(decimals << (RESERVE_DECIMALS_START_BIT_POSITION as u8))
+            | (decimals << (RESERVE_DECIMALS_START_BIT_POSITION as u8))
     }
 
     /// @notice Gets the decimals of the underlying asset of the reserve
@@ -216,7 +217,7 @@ module aave_config::reserve {
             frozen_state = 1;
         };
         self.data = (self.data & FROZEN_MASK)
-            |(frozen_state << (IS_FROZEN_START_BIT_POSITION as u8))
+            | (frozen_state << (IS_FROZEN_START_BIT_POSITION as u8))
     }
 
     /// @notice Gets the frozen state of the reserve
@@ -237,7 +238,7 @@ module aave_config::reserve {
             paused_state = 1;
         };
         self.data = (self.data & PAUSED_MASK)
-            |(paused_state << (IS_PAUSED_START_BIT_POSITION as u8))
+            | (paused_state << (IS_PAUSED_START_BIT_POSITION as u8))
     }
 
     /// @notice Gets the paused state of the reserve
@@ -262,7 +263,7 @@ module aave_config::reserve {
             borrowable_state = 1;
         };
         self.data = (self.data & BORROWABLE_IN_ISOLATION_MASK)
-            |(borrowable_state << (BORROWABLE_IN_ISOLATION_START_BIT_POSITION as u8))
+            | (borrowable_state << (BORROWABLE_IN_ISOLATION_START_BIT_POSITION as u8))
     }
 
     /// @notice Gets the borrowable in isolation flag for the reserve.
@@ -328,11 +329,11 @@ module aave_config::reserve {
     ) {
         assert!(
             reserve_factor <= MAX_VALID_RESERVE_FACTOR,
-            error_config::get_einvalid_reserve_factor(),
+            error_config::get_einvalid_reserve_factor()
         );
 
         self.data = (self.data & RESERVE_FACTOR_MASK)
-            |(reserve_factor << (RESERVE_FACTOR_START_BIT_POSITION as u8))
+            | (reserve_factor << (RESERVE_FACTOR_START_BIT_POSITION as u8))
     }
 
     /// @notice Gets the reserve factor of the reserve
@@ -353,7 +354,7 @@ module aave_config::reserve {
             borrow_cap <= MAX_VALID_BORROW_CAP, error_config::get_einvalid_borrow_cap()
         );
         self.data = (self.data & BORROW_CAP_MASK)
-            |(borrow_cap << (BORROW_CAP_START_BIT_POSITION as u8));
+            | (borrow_cap << (BORROW_CAP_START_BIT_POSITION as u8));
     }
 
     /// @notice Gets the borrow cap of the reserve
@@ -374,7 +375,7 @@ module aave_config::reserve {
             supply_cap <= MAX_VALID_SUPPLY_CAP, error_config::get_einvalid_supply_cap()
         );
         self.data = (self.data & SUPPLY_CAP_MASK)
-            |(supply_cap << (SUPPLY_CAP_START_BIT_POSITION as u8))
+            | (supply_cap << (SUPPLY_CAP_START_BIT_POSITION as u8))
     }
 
     /// @notice Gets the supply cap of the reserve
@@ -393,11 +394,11 @@ module aave_config::reserve {
     ) {
         assert!(
             debt_ceiling <= MAX_VALID_DEBT_CEILING,
-            error_config::get_einvalid_debt_ceiling(),
+            error_config::get_einvalid_debt_ceiling()
         );
 
         self.data = (self.data & DEBT_CEILING_MASK)
-            |(debt_ceiling << (DEBT_CEILING_START_BIT_POSITION as u8));
+            | (debt_ceiling << (DEBT_CEILING_START_BIT_POSITION as u8));
     }
 
     /// @notice Gets the debt ceiling for the asset if the asset is in isolation mode
@@ -416,10 +417,10 @@ module aave_config::reserve {
     ) {
         assert!(
             liquidation_protocol_fee <= MAX_VALID_LIQUIDATION_PROTOCOL_FEE,
-            error_config::get_einvalid_liquidation_protocol_fee(),
+            error_config::get_einvalid_liquidation_protocol_fee()
         );
         self.data = (self.data & LIQUIDATION_PROTOCOL_FEE_MASK)
-            |(
+            | (
                 liquidation_protocol_fee
                     << (LIQUIDATION_PROTOCOL_FEE_START_BIT_POSITION as u8)
             )
@@ -443,11 +444,11 @@ module aave_config::reserve {
     ) {
         assert!(
             unbacked_mint_cap <= MAX_VALID_UNBACKED_MINT_CAP,
-            error_config::get_einvalid_unbacked_mint_cap(),
+            error_config::get_einvalid_unbacked_mint_cap()
         );
 
         self.data = (self.data & UNBACKED_MINT_CAP_MASK)
-            |(unbacked_mint_cap << (UNBACKED_MINT_CAP_START_BIT_POSITION as u8))
+            | (unbacked_mint_cap << (UNBACKED_MINT_CAP_START_BIT_POSITION as u8))
     }
 
     /// @dev Gets the unbacked mint cap of the reserve
@@ -466,10 +467,10 @@ module aave_config::reserve {
     ) {
         assert!(
             emode_category <= MAX_VALID_EMODE_CATEGORY,
-            error_config::get_einvalid_emode_category(),
+            error_config::get_einvalid_emode_category()
         );
         self.data = (self.data & EMODE_CATEGORY_MASK)
-            |(emode_category << (EMODE_CATEGORY_START_BIT_POSITION as u8))
+            | (emode_category << (EMODE_CATEGORY_START_BIT_POSITION as u8))
     }
 
     /// @dev Gets the eMode asset category
@@ -491,7 +492,7 @@ module aave_config::reserve {
             flash_loan_enabled_state = 1;
         };
         self.data = (self.data & FLASHLOAN_ENABLED_MASK)
-            |(flash_loan_enabled_state << (FLASHLOAN_ENABLED_START_BIT_POSITION as u8))
+            | (flash_loan_enabled_state << (FLASHLOAN_ENABLED_START_BIT_POSITION as u8))
     }
 
     /// @notice Gets the flashloanable flag for the reserve
@@ -509,8 +510,10 @@ module aave_config::reserve {
     /// @return The state flag representing paused
     public fun get_flags(self: &ReserveConfigurationMap): (bool, bool, bool, bool) {
         (
-            get_active(self), get_frozen(self), get_borrowing_enabled(self),
-            get_paused(self),
+            get_active(self),
+            get_frozen(self),
+            get_borrowing_enabled(self),
+            get_paused(self)
         )
     }
 
@@ -522,14 +525,15 @@ module aave_config::reserve {
     /// @return The state param representing reserve decimals
     /// @return The state param representing reserve factor
     /// @return The state param representing eMode category
-    public fun get_params(self: &ReserveConfigurationMap): (u256, u256, u256, u256, u256, u256) {
+    public fun get_params(self: &ReserveConfigurationMap):
+        (u256, u256, u256, u256, u256, u256) {
         (
             get_ltv(self),
             get_liquidation_threshold(self),
             get_liquidation_bonus(self),
             get_decimals(self),
             get_reserve_factor(self),
-            get_emode_category(self),
+            get_emode_category(self)
         )
     }
 

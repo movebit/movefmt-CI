@@ -4,14 +4,60 @@ import {
   Ed25519PrivateKey,
   AptosConfig,
   Aptos,
-  AccountPublicKey,
   AccountAddress,
+  Ed25519Account,
 } from "@aptos-labs/ts-sdk";
-import fs from "fs";
 import path from "path";
-import { PathLike } from "node:fs";
 import YAML from "yaml";
 import dotenv from "dotenv";
+
+export interface AptosProviderConfig {
+  network: Network;
+  addresses: {
+    A_TOKENS: string;
+    UNDERLYING_TOKENS: string;
+    VARIABLE_TOKENS: string;
+    AAVE_ACL: string;
+    AAVE_CONFIG: string;
+    AAVE_ORACLE: string;
+    AAVE_POOL: string;
+  };
+  oracle: {
+    URL: string;
+    CONTRACT_ACCOUNT: string;
+    DEPLOYER_ACCOUNT: string;
+    WORMHOLE: string;
+  };
+}
+
+export interface AptosAccountConfig {
+  network: string;
+  private_key: string;
+  public_key: string;
+  account: string;
+  rest_url: string;
+  faucet_url: string;
+}
+
+export enum AAVE_PROFILES {
+  A_TOKENS = "a_tokens",
+  UNDERLYING_TOKENS = "underlying_tokens",
+  VARIABLE_TOKENS = "variable_tokens",
+  AAVE_ACL = "aave_acl",
+  AAVE_CONFIG = "aave_config",
+  AAVE_RATE = "aave_rate",
+  AAVE_ORACLE = "aave_oracle",
+  AAVE_POOL = "aave_pool",
+  AAVE_LARGE_PACKAGES = "aave_large_packages",
+  AAVE_MATH = "aave_math",
+  DEFAULT_FUNDER = "default",
+  TEST_ACCOUNT_0 = "test_account_0",
+  TEST_ACCOUNT_1 = "test_account_1",
+  TEST_ACCOUNT_2 = "test_account_2",
+  TEST_ACCOUNT_3 = "test_account_3",
+  TEST_ACCOUNT_4 = "test_account_4",
+  TEST_ACCOUNT_5 = "test_account_5",
+}
 
 const envPath = path.resolve(__dirname, "../../.env");
 dotenv.config({ path: envPath });
@@ -25,71 +71,211 @@ export interface AccountProfileConfig {
 }
 
 export class AptosProvider {
-  private readonly network: Network;
+  private network: Network;
 
-  private readonly oracleUrl: string;
+  private oracleUrl: string;
 
-  private accountProfilesMap: Map<string, Account> = new Map();
-
-  private accountPrivateKeysMap: Map<string, Ed25519PrivateKey> = new Map();
+  private profileAddressMap: Map<string, AccountAddress> = new Map();
+  private profileAccountMap: Map<string, Ed25519PrivateKey> = new Map();
 
   private aptos: Aptos;
 
-  constructor() {
+  private constructor() {}
+
+  public static fromConfig(config: AptosProviderConfig): AptosProvider {
+    const aptosProvider = new AptosProvider();
+    aptosProvider.setNetwork(config.network);
+    aptosProvider.setOracleUrl(config.oracle.URL);
+    aptosProvider.addProfileAddress(AAVE_PROFILES.A_TOKENS, AccountAddress.fromString(config.addresses.A_TOKENS));
+    aptosProvider.addProfileAddress(
+      AAVE_PROFILES.UNDERLYING_TOKENS,
+      AccountAddress.fromString(config.addresses.UNDERLYING_TOKENS),
+    );
+    aptosProvider.addProfileAddress(
+      AAVE_PROFILES.VARIABLE_TOKENS,
+      AccountAddress.fromString(config.addresses.VARIABLE_TOKENS),
+    );
+    aptosProvider.addProfileAddress(AAVE_PROFILES.AAVE_ACL, AccountAddress.fromString(config.addresses.AAVE_ACL));
+    aptosProvider.addProfileAddress(AAVE_PROFILES.AAVE_CONFIG, AccountAddress.fromString(config.addresses.AAVE_CONFIG));
+    aptosProvider.addProfileAddress(
+      AAVE_PROFILES.AAVE_ORACLE,
+      AccountAddress.fromString(config.addresses.AAVE_ORACLE),
+    );
+    aptosProvider.addProfileAddress(AAVE_PROFILES.AAVE_POOL, AccountAddress.fromString(config.addresses.AAVE_POOL));
+    const aptosConfig = new AptosConfig({
+      network: aptosProvider.getNetwork(),
+    });
+    aptosProvider.setAptos(aptosConfig);
+    return aptosProvider;
+  }
+
+  public static fromAptosYaml(aptosYaml: string): AptosProvider {
+    const aptosProvider = new AptosProvider();
+    const parsedYaml = YAML.parse(aptosYaml);
+    for (const profile of Object.keys(parsedYaml.profiles)) {
+      const profileConfig = parsedYaml.profiles[profile] as AptosAccountConfig;
+
+      // extract network
+      switch (profileConfig.network.toLowerCase()) {
+        case "testnet": {
+          aptosProvider.setNetwork(Network.TESTNET);
+          break;
+        }
+        case "devnet": {
+          aptosProvider.setNetwork(Network.DEVNET);
+          break;
+        }
+        case "mainnet": {
+          aptosProvider.setNetwork(Network.MAINNET);
+          break;
+        }
+        case "local": {
+          aptosProvider.setNetwork(Network.LOCAL);
+          break;
+        }
+        default:
+          throw new Error(`Unknown network ${profileConfig.network ? profileConfig.network : "undefined"}`);
+      }
+
+      const aptosPrivateKey = new Ed25519PrivateKey(profileConfig.private_key);
+      aptosProvider.addProfileAccount(profile, aptosPrivateKey);
+      const profileAccount = Account.fromPrivateKey({
+        privateKey: aptosPrivateKey,
+      });
+      aptosProvider.addProfileAddress(profile, profileAccount.accountAddress);
+    }
+    const aptosConfig = new AptosConfig({
+      network: aptosProvider.getNetwork(),
+    });
+    aptosProvider.setAptos(aptosConfig);
+    return aptosProvider;
+  }
+
+  public static fromEnvs(): AptosProvider {
+    const aptosProvider = new AptosProvider();
     // read vars from .env file
     if (!process.env.APTOS_NETWORK) {
       throw new Error("Missing APTOS_NETWORK in .env file");
     }
     switch (process.env.APTOS_NETWORK.toLowerCase()) {
       case "testnet": {
-        this.network = Network.TESTNET;
+        aptosProvider.setNetwork(Network.TESTNET);
         break;
       }
       case "devnet": {
-        this.network = Network.DEVNET;
+        aptosProvider.setNetwork(Network.DEVNET);
         break;
       }
       case "mainnet": {
-        this.network = Network.MAINNET;
+        aptosProvider.setNetwork(Network.MAINNET);
         break;
       }
       case "local": {
-        this.network = Network.LOCAL;
+        aptosProvider.setNetwork(Network.LOCAL);
         break;
       }
       default:
         throw new Error(`Unknown network ${process.env.APTOS_NETWORK ? process.env.APTOS_NETWORK : "undefined"}`);
     }
 
-    if (!process.env.PYTH_HERMES_URL) {
-      throw new Error("Missing PYTH_HERMES_URL in .env file");
-    }
-    this.oracleUrl = process.env.PYTH_HERMES_URL;
-    let aptosConfigFile = process.env.APTOS_CONFIG_FILE;
+    aptosProvider.setOracleUrl("");
 
-    // if aptos path not set presume local path
-    if (!process.env.APTOS_CONFIG_FILE) {
-      const basePath = path.resolve(__dirname, "../../");
-      aptosConfigFile = path.join(basePath, ".aptos/config.yaml");
+    // read envs
+    if (!process.env.A_TOKENS_PRIVATE_KEY) {
+      throw new Error("Env variable A_TOKENS_PRIVATE_KEY does not exist");
     }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.A_TOKENS, process.env.A_TOKENS_PRIVATE_KEY);
 
-    // read profile set
-    if (!fs.existsSync(aptosConfigFile as PathLike)) {
-      throw new Error(`Package path ${aptosConfigFile} does not exist`);
+    if (!process.env.UNDERLYING_TOKENS_PRIVATE_KEY) {
+      throw new Error("Env variable UNDERLYING_TOKENS_PRIVATE_KEY does not exist");
     }
-    const aptosConfigData = fs.readFileSync(aptosConfigFile, "utf8");
+    addProfilePkey(aptosProvider, AAVE_PROFILES.UNDERLYING_TOKENS, process.env.UNDERLYING_TOKENS_PRIVATE_KEY);
 
-    const parsedYaml = YAML.parse(aptosConfigData);
-    for (const profile of Object.keys(parsedYaml.profiles)) {
-      const profileConfig = parsedYaml.profiles[profile] as AccountProfileConfig;
-      const aptosPrivateKey = new Ed25519PrivateKey(profileConfig.private_key);
-      this.accountPrivateKeysMap.set(profile, aptosPrivateKey);
-      const profileAccount = Account.fromPrivateKey({ privateKey: aptosPrivateKey });
-      this.accountProfilesMap.set(profile, profileAccount);
+    if (!process.env.VARIABLE_TOKENS_PRIVATE_KEY) {
+      throw new Error("Env variable VARIABLE_TOKENS_PRIVATE_KEY does not exist");
     }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.VARIABLE_TOKENS, process.env.VARIABLE_TOKENS_PRIVATE_KEY);
 
-    const config = new AptosConfig({ network: this.network });
-    this.aptos = new Aptos(config);
+    if (!process.env.AAVE_ACL_PRIVATE_KEY) {
+      throw new Error("Env variable AAVE_ACL_PRIVATE_KEY does not exist");
+    }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.AAVE_ACL, process.env.AAVE_ACL_PRIVATE_KEY);
+
+    if (!process.env.AAVE_RATE_PRIVATE_KEY) {
+      throw new Error("Env variable AAVE_RATE_PRIVATE_KEY does not exist");
+    }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.AAVE_RATE, process.env.AAVE_RATE_PRIVATE_KEY);
+
+    if (!process.env.AAVE_CONFIG_PRIVATE_KEY) {
+      throw new Error("Env variable AAVE_CONFIG_PRIVATE_KEY does not exist");
+    }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.AAVE_CONFIG, process.env.AAVE_CONFIG_PRIVATE_KEY);
+
+    if (!process.env.AAVE_ORACLE_PRIVATE_KEY) {
+      throw new Error("Env variable AAVE_ORACLE_PRIVATE_KEY does not exist");
+    }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.AAVE_ORACLE, process.env.AAVE_ORACLE_PRIVATE_KEY);
+
+    if (!process.env.AAVE_ORACLE_PRIVATE_KEY) {
+      throw new Error("Env variable AAVE_ORACLE_PRIVATE_KEY does not exist");
+    }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.AAVE_ORACLE, process.env.AAVE_ORACLE_PRIVATE_KEY);
+
+    if (!process.env.AAVE_POOL_PRIVATE_KEY) {
+      throw new Error("Env variable AAVE_POOL_PRIVATE_KEY does not exist");
+    }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.AAVE_POOL, process.env.AAVE_POOL_PRIVATE_KEY);
+
+    if (!process.env.AAVE_LARGE_PACKAGES_PRIVATE_KEY) {
+      throw new Error("Env variable AAVE_LARGE_PACKAGES_PRIVATE_KEY does not exist");
+    }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.AAVE_LARGE_PACKAGES, process.env.AAVE_LARGE_PACKAGES_PRIVATE_KEY);
+
+    if (!process.env.AAVE_MATH_PRIVATE_KEY) {
+      throw new Error("Env variable AAVE_MATH_PRIVATE_KEY does not exist");
+    }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.AAVE_MATH, process.env.AAVE_MATH_PRIVATE_KEY);
+
+    if (!process.env.DEFAULT_FUNDER_PRIVATE_KEY) {
+      throw new Error("Env variable DEFAULT_FUNDER_PRIVATE_KEY does not exist");
+    }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.DEFAULT_FUNDER, process.env.DEFAULT_FUNDER_PRIVATE_KEY);
+
+    if (!process.env.TEST_ACCOUNT_0_PRIVATE_KEY) {
+      throw new Error("Env variable TEST_ACCOUNT_0_PRIVATE_KEY does not exist");
+    }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.TEST_ACCOUNT_0, process.env.TEST_ACCOUNT_0_PRIVATE_KEY);
+
+    if (!process.env.TEST_ACCOUNT_1_PRIVATE_KEY) {
+      throw new Error("Env variable TEST_ACCOUNT_1_PRIVATE_KEY does not exist");
+    }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.TEST_ACCOUNT_1, process.env.TEST_ACCOUNT_1_PRIVATE_KEY);
+
+    if (!process.env.TEST_ACCOUNT_2_PRIVATE_KEY) {
+      throw new Error("Env variable TEST_ACCOUNT_2_PRIVATE_KEY does not exist");
+    }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.TEST_ACCOUNT_2, process.env.TEST_ACCOUNT_2_PRIVATE_KEY);
+
+    if (!process.env.TEST_ACCOUNT_3_PRIVATE_KEY) {
+      throw new Error("Env variable TEST_ACCOUNT_3_PRIVATE_KEY does not exist");
+    }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.TEST_ACCOUNT_3, process.env.TEST_ACCOUNT_3_PRIVATE_KEY);
+
+    if (!process.env.TEST_ACCOUNT_4_PRIVATE_KEY) {
+      throw new Error("Env variable TEST_ACCOUNT_4_PRIVATE_KEY does not exist");
+    }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.TEST_ACCOUNT_4, process.env.TEST_ACCOUNT_4_PRIVATE_KEY);
+
+    if (!process.env.TEST_ACCOUNT_5_PRIVATE_KEY) {
+      throw new Error("Env variable TEST_ACCOUNT_5_PRIVATE_KEY does not exist");
+    }
+    addProfilePkey(aptosProvider, AAVE_PROFILES.TEST_ACCOUNT_5, process.env.TEST_ACCOUNT_5_PRIVATE_KEY);
+
+    const aptosConfig = new AptosConfig({
+      network: aptosProvider.getNetwork(),
+    });
+    aptosProvider.setAptos(aptosConfig);
+    return aptosProvider;
   }
 
   /** Returns the aptos instance. */
@@ -97,24 +283,21 @@ export class AptosProvider {
     return this.aptos;
   }
 
-  /** Returns the account profile by name if found. */
-  public getProfileAccountByName(profileName: string): Account {
-    return this.accountProfilesMap.get(profileName);
+  /** Returns the profile private key by name if found. */
+  public getProfileAccountPrivateKeyByName(profileName: string): Ed25519PrivateKey {
+    return this.profileAccountMap.get(profileName);
   }
 
-  /** Returns the account profile private key by name if found. */
-  public getProfilePrivateKeyByName(profileName: string): Ed25519PrivateKey {
-    return this.accountPrivateKeysMap.get(profileName);
+  /** Returns the profile private key by name if found. */
+  public getProfileAccountByName(profileName: string): Ed25519Account {
+    return Account.fromPrivateKey({
+      privateKey: this.getProfileAccountPrivateKeyByName(profileName),
+    });
   }
 
-  /** Returns the account profile public key by name if found. */
-  public getProfilePublicKeyByName(profileName: string): AccountPublicKey {
-    return this.accountProfilesMap.get(profileName).publicKey;
-  }
-
-  /** Returns the account profile address by name if found. */
-  public getProfileAccountAddressByByName(profileName: string): AccountAddress {
-    return this.accountProfilesMap.get(profileName).accountAddress;
+  /** Returns the profile address by name if found. */
+  public getProfileAddressByName(profileName: string): AccountAddress {
+    return this.profileAddressMap.get(profileName);
   }
 
   /** Gets the selected network. */
@@ -126,4 +309,57 @@ export class AptosProvider {
   public getOracleUrl(): string {
     return this.oracleUrl;
   }
+
+  public setNetwork(network: Network) {
+    this.network = network;
+  }
+
+  public setOracleUrl(oracleUrl: string) {
+    this.oracleUrl = oracleUrl;
+  }
+
+  public addProfileAddress(profileName: string, address: AccountAddress) {
+    this.profileAddressMap.set(profileName, address);
+  }
+
+  public addProfileAccount(profileName: string, account: Ed25519PrivateKey) {
+    this.profileAccountMap.set(profileName, account);
+  }
+
+  public setAptos(aptosConfig: AptosConfig) {
+    this.aptos = new Aptos(aptosConfig);
+  }
+
+  public getOracleProfileAccount(): Ed25519Account {
+    return this.getProfileAccountByName(AAVE_PROFILES.AAVE_ORACLE);
+  }
+
+  public getPoolProfileAccount(): Ed25519Account {
+    return this.getProfileAccountByName(AAVE_PROFILES.AAVE_POOL);
+  }
+
+  public getATokensProfileAccount(): Ed25519Account {
+    return this.getProfileAccountByName(AAVE_PROFILES.A_TOKENS);
+  }
+
+  public getUnderlyingTokensProfileAccount(): Ed25519Account {
+    return this.getProfileAccountByName(AAVE_PROFILES.UNDERLYING_TOKENS);
+  }
+
+  public getVariableTokensProfileAccount(): Ed25519Account {
+    return this.getProfileAccountByName(AAVE_PROFILES.VARIABLE_TOKENS);
+  }
+
+  public getAclProfileAccount(): Ed25519Account {
+    return this.getProfileAccountByName(AAVE_PROFILES.AAVE_ACL);
+  }
 }
+
+const addProfilePkey = (aptosProvider: AptosProvider, profile: string, privateKey: string) => {
+  const aptosPrivateKey = new Ed25519PrivateKey(privateKey);
+  aptosProvider.addProfileAccount(profile, aptosPrivateKey);
+  const profileAccount = Account.fromPrivateKey({
+    privateKey: aptosPrivateKey,
+  });
+  aptosProvider.addProfileAddress(profile, profileAccount.accountAddress);
+};

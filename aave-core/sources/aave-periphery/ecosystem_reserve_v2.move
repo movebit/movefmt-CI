@@ -2,13 +2,12 @@ module aave_pool::ecosystem_reserve_v2 {
     use std::signer;
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_framework::event;
-    use aptos_framework::object::{Self, Object,};
+    use aptos_framework::object::{Self, Object};
     use aptos_framework::timestamp;
 
     use aave_acl::acl_manage::Self;
 
     use aave_pool::admin_controlled_ecosystem_reserve::check_is_funds_admin;
-    use aave_pool::mock_underlying_token_factory;
     use aave_pool::stream::{Self, Stream};
 
     #[test_only]
@@ -33,7 +32,7 @@ module aave_pool::ecosystem_reserve_v2 {
 
     struct EcosystemReserveV2Data has key {
         next_stream_id: u256,
-        streams: SmartTable<u256, Stream>,
+        streams: SmartTable<u256, Stream>
     }
 
     #[event]
@@ -44,14 +43,14 @@ module aave_pool::ecosystem_reserve_v2 {
         deposit: u256,
         token_address: address,
         start_time: u256,
-        stop_time: u256,
+        stop_time: u256
     }
 
     #[event]
     struct WithdrawFromStream has store, drop {
         stream_id: u256,
         recipient: address,
-        amount: u256,
+        amount: u256
     }
 
     #[event]
@@ -60,13 +59,13 @@ module aave_pool::ecosystem_reserve_v2 {
         sender: address,
         recipient: address,
         sender_balance: u256,
-        recipient_balance: u256,
+        recipient_balance: u256
     }
 
     fun only_admin_or_recipient(account: address, stream_id: u256) acquires EcosystemReserveV2Data {
         assert!(
             acl_manage::is_funds_admin(account) || is_recipient(account, stream_id),
-            NOT_FUNDS_ADMIN,
+            NOT_FUNDS_ADMIN
         );
     }
 
@@ -90,7 +89,7 @@ module aave_pool::ecosystem_reserve_v2 {
 
         assert!(
             smart_table::contains(&ecosystem_reserve_v2_data.streams, stream_id),
-            ESTREAM_NOT_EXISTS,
+            ESTREAM_NOT_EXISTS
         );
         let stream_item =
             smart_table::borrow(&ecosystem_reserve_v2_data.streams, stream_id);
@@ -103,7 +102,7 @@ module aave_pool::ecosystem_reserve_v2 {
         ecosystem_reserve_v2_data.next_stream_id
     }
 
-    public fun initialize(sender: &signer,) {
+    public fun initialize(sender: &signer) {
         let state_object_constructor_ref =
             &object::create_named_object(sender, ECOSYSTEM_RESERVE_V2_NAME);
         let state_object_signer = &object::generate_signer(state_object_constructor_ref);
@@ -112,8 +111,8 @@ module aave_pool::ecosystem_reserve_v2 {
             state_object_signer,
             EcosystemReserveV2Data {
                 streams: smart_table::new<u256, Stream>(),
-                next_stream_id: 1,
-            },
+                next_stream_id: 1
+            }
         );
     }
 
@@ -129,7 +128,9 @@ module aave_pool::ecosystem_reserve_v2 {
         )
     }
 
-    fun get_stream(stream_id: u256): (address, address, u256, address, u256, u256, u256, u256) acquires EcosystemReserveV2Data {
+    fun get_stream(
+        stream_id: u256
+    ): (address, address, u256, address, u256, u256, u256, u256) acquires EcosystemReserveV2Data {
         stream_exists(stream_id);
 
         let ecosystem_reserve_v2_data =
@@ -205,7 +206,7 @@ module aave_pool::ecosystem_reserve_v2 {
 
         assert!(
             recipient != ecosystem_reserve_v2_data_address(),
-            ESTREAM_TO_THE_CONTRACT_ITSELF,
+            ESTREAM_TO_THE_CONTRACT_ITSELF
         );
         assert!(recipient != signer::address_of(sender), ESTREAM_TO_THE_CALLER);
         assert!(deposit > 0, EDEPOSIT_IS_ZERO);
@@ -217,7 +218,10 @@ module aave_pool::ecosystem_reserve_v2 {
 
         assert!(deposit >= duration, EDEPOSIT_SMALLER_THAN_TIME_DELTA);
 
-        assert!(deposit % duration == 0, EDEPOSIT_NOT_MULTIPLE_OF_TIME_DELTA);
+        assert!(
+            deposit % duration == 0,
+            EDEPOSIT_NOT_MULTIPLE_OF_TIME_DELTA
+        );
 
         let rate_per_second = deposit / duration;
 
@@ -237,7 +241,7 @@ module aave_pool::ecosystem_reserve_v2 {
                 recipient,
                 signer::address_of(sender),
                 token_address,
-                true,
+                true
             );
 
         smart_table::upsert(
@@ -256,7 +260,7 @@ module aave_pool::ecosystem_reserve_v2 {
                 token_address,
                 start_time,
                 stop_time
-            },
+            }
         );
 
         stream_id
@@ -296,7 +300,7 @@ module aave_pool::ecosystem_reserve_v2 {
             smart_table::remove(&mut ecosystem_reserve_v2_data.streams, stream_id);
         };
 
-        event::emit(WithdrawFromStream { stream_id, recipient, amount, });
+        event::emit(WithdrawFromStream { stream_id, recipient, amount });
         true
     }
 
@@ -309,7 +313,7 @@ module aave_pool::ecosystem_reserve_v2 {
         let stream_item =
             smart_table::borrow(&ecosystem_reserve_v2_data.streams, stream_id);
 
-        let (stream_sender, recipient, _, token_address, _, _, _, _) =
+        let (stream_sender, recipient, _, _token_address, _, _, _, _) =
             stream::get_stream(stream_item);
 
         let sender_balance = balance_of(stream_id, stream_sender);
@@ -323,12 +327,12 @@ module aave_pool::ecosystem_reserve_v2 {
         smart_table::remove(&mut ecosystem_reserve_v2_data.streams, stream_id);
 
         if (recipient_balance > 0) {
-            mock_underlying_token_factory::transfer_from(
-                stream_sender,
-                recipient,
-                (recipient_balance as u64),
-                token_address,
-            );
+            // mock_underlying_token_factory::transfer_from(
+            //     stream_sender,
+            //     recipient,
+            //     (recipient_balance as u64),
+            //     token_address
+            // );
         };
 
         event::emit(
@@ -337,8 +341,8 @@ module aave_pool::ecosystem_reserve_v2 {
                 sender: stream_sender,
                 recipient,
                 sender_balance,
-                recipient_balance,
-            },
+                recipient_balance
+            }
         );
 
         true
@@ -347,13 +351,21 @@ module aave_pool::ecosystem_reserve_v2 {
     const TEST_SUCCESS: u64 = 1;
     const TEST_FAILED: u64 = 2;
 
-    #[test(aave_role_super_admin = @aave_acl, periphery_account = @aave_pool, acl_fund_admin = @0x111, user_account = @0x222, creator = @0x1)]
+    #[
+        test(
+            aave_role_super_admin = @aave_acl,
+            periphery_account = @aave_pool,
+            acl_fund_admin = @0x111,
+            user_account = @0x222,
+            creator = @0x1
+        )
+    ]
     fun test_basic_flow(
         aave_role_super_admin: &signer,
         periphery_account: &signer,
         acl_fund_admin: &signer,
         user_account: &signer,
-        creator: &signer,
+        creator: &signer
     ) acquires EcosystemReserveV2Data {
         // init acl
         acl_manage::test_init_module(aave_role_super_admin);
@@ -367,13 +379,13 @@ module aave_pool::ecosystem_reserve_v2 {
         let _ts_one_hour_ago = timestamp::now_seconds() - one_hour_in_secs;
 
         // set fund admin
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(acl_fund_admin)
         );
         // assert role is granted
         acl_manage::is_funds_admin(signer::address_of(acl_fund_admin));
 
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(periphery_account)
         );
 
@@ -396,19 +408,27 @@ module aave_pool::ecosystem_reserve_v2 {
                 deposit,
                 token_address,
                 start_time,
-                stop_time,
+                stop_time
             );
 
         assert!(stream_id == 1, TEST_SUCCESS);
     }
 
-    #[test(aave_role_super_admin = @aave_acl, periphery_account = @aave_pool, acl_fund_admin = @0x111, user_account = @0x222, creator = @0x1)]
+    #[
+        test(
+            aave_role_super_admin = @aave_acl,
+            periphery_account = @aave_pool,
+            acl_fund_admin = @0x111,
+            user_account = @0x222,
+            creator = @0x1
+        )
+    ]
     fun test_only_admin_or_recipient(
         aave_role_super_admin: &signer,
         periphery_account: &signer,
         acl_fund_admin: &signer,
         user_account: &signer,
-        creator: &signer,
+        creator: &signer
     ) acquires EcosystemReserveV2Data {
         // init acl
         acl_manage::test_init_module(aave_role_super_admin);
@@ -422,13 +442,13 @@ module aave_pool::ecosystem_reserve_v2 {
         let _ts_one_hour_ago = timestamp::now_seconds() - one_hour_in_secs;
 
         // set fund admin
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(acl_fund_admin)
         );
         // assert role is granted
         acl_manage::is_funds_admin(signer::address_of(acl_fund_admin));
 
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(periphery_account)
         );
 
@@ -451,7 +471,7 @@ module aave_pool::ecosystem_reserve_v2 {
                 deposit,
                 token_address,
                 start_time,
-                stop_time,
+                stop_time
             );
 
         assert!(stream_id == 1, TEST_SUCCESS);
@@ -459,13 +479,21 @@ module aave_pool::ecosystem_reserve_v2 {
         only_admin_or_recipient(token_address, 1);
     }
 
-    #[test(aave_role_super_admin = @aave_acl, periphery_account = @aave_pool, acl_fund_admin = @0x111, user_account = @0x222, creator = @0x1)]
+    #[
+        test(
+            aave_role_super_admin = @aave_acl,
+            periphery_account = @aave_pool,
+            acl_fund_admin = @0x111,
+            user_account = @0x222,
+            creator = @0x1
+        )
+    ]
     fun test_cancel_stream(
         aave_role_super_admin: &signer,
         periphery_account: &signer,
         acl_fund_admin: &signer,
         user_account: &signer,
-        creator: &signer,
+        creator: &signer
     ) acquires EcosystemReserveV2Data {
         // init acl
         acl_manage::test_init_module(aave_role_super_admin);
@@ -479,13 +507,13 @@ module aave_pool::ecosystem_reserve_v2 {
         let _ts_one_hour_ago = timestamp::now_seconds() - one_hour_in_secs;
 
         // set fund admin
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(acl_fund_admin)
         );
         // assert role is granted
         acl_manage::is_funds_admin(signer::address_of(acl_fund_admin));
 
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(periphery_account)
         );
 
@@ -508,7 +536,7 @@ module aave_pool::ecosystem_reserve_v2 {
                 deposit,
                 token_address,
                 start_time,
-                stop_time,
+                stop_time
             );
 
         assert!(stream_id == 1, 1);
@@ -516,13 +544,21 @@ module aave_pool::ecosystem_reserve_v2 {
         cancel_stream(periphery_account, stream_id);
     }
 
-    #[test(aave_role_super_admin = @aave_acl, periphery_account = @aave_pool, acl_fund_admin = @0x111, user_account = @0x222, creator = @0x1)]
+    #[
+        test(
+            aave_role_super_admin = @aave_acl,
+            periphery_account = @aave_pool,
+            acl_fund_admin = @0x111,
+            user_account = @0x222,
+            creator = @0x1
+        )
+    ]
     fun test_balance_of(
         aave_role_super_admin: &signer,
         periphery_account: &signer,
         acl_fund_admin: &signer,
         user_account: &signer,
-        creator: &signer,
+        creator: &signer
     ) acquires EcosystemReserveV2Data {
         // init acl
         acl_manage::test_init_module(aave_role_super_admin);
@@ -536,13 +572,13 @@ module aave_pool::ecosystem_reserve_v2 {
         let _ts_one_hour_ago = timestamp::now_seconds() - one_hour_in_secs;
 
         // set fund admin
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(acl_fund_admin)
         );
         // assert role is granted
         acl_manage::is_funds_admin(signer::address_of(acl_fund_admin));
 
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(periphery_account)
         );
 
@@ -565,7 +601,7 @@ module aave_pool::ecosystem_reserve_v2 {
                 deposit,
                 token_address,
                 start_time,
-                stop_time,
+                stop_time
             );
 
         assert!(stream_id == 1, 1);
@@ -576,13 +612,21 @@ module aave_pool::ecosystem_reserve_v2 {
         assert!(res == 7200, 1);
     }
 
-    #[test(aave_role_super_admin = @aave_acl, periphery_account = @aave_pool, acl_fund_admin = @0x111, user_account = @0x222, creator = @0x1)]
+    #[
+        test(
+            aave_role_super_admin = @aave_acl,
+            periphery_account = @aave_pool,
+            acl_fund_admin = @0x111,
+            user_account = @0x222,
+            creator = @0x1
+        )
+    ]
     fun test_withdraw_from_stream(
         aave_role_super_admin: &signer,
         periphery_account: &signer,
         acl_fund_admin: &signer,
         user_account: &signer,
-        creator: &signer,
+        creator: &signer
     ) acquires EcosystemReserveV2Data {
         // init acl
         acl_manage::test_init_module(aave_role_super_admin);
@@ -596,13 +640,13 @@ module aave_pool::ecosystem_reserve_v2 {
         let _ts_one_hour_ago = timestamp::now_seconds() - one_hour_in_secs;
 
         // set fund admin
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(acl_fund_admin)
         );
         // assert role is granted
         acl_manage::is_funds_admin(signer::address_of(acl_fund_admin));
 
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(periphery_account)
         );
 
@@ -625,7 +669,7 @@ module aave_pool::ecosystem_reserve_v2 {
                 deposit,
                 token_address,
                 start_time,
-                stop_time,
+                stop_time
             );
 
         assert!(stream_id == 1, 1);
@@ -638,13 +682,21 @@ module aave_pool::ecosystem_reserve_v2 {
         assert!(res == true, 1);
     }
 
-    #[test(aave_role_super_admin = @aave_acl, periphery_account = @aave_pool, acl_fund_admin = @0x111, user_account = @0x222, creator = @0x1)]
+    #[
+        test(
+            aave_role_super_admin = @aave_acl,
+            periphery_account = @aave_pool,
+            acl_fund_admin = @0x111,
+            user_account = @0x222,
+            creator = @0x1
+        )
+    ]
     fun test_get_stream(
         aave_role_super_admin: &signer,
         periphery_account: &signer,
         acl_fund_admin: &signer,
         user_account: &signer,
-        creator: &signer,
+        creator: &signer
     ) acquires EcosystemReserveV2Data {
         // init acl
         acl_manage::test_init_module(aave_role_super_admin);
@@ -658,13 +710,13 @@ module aave_pool::ecosystem_reserve_v2 {
         let _ts_one_hour_ago = timestamp::now_seconds() - one_hour_in_secs;
 
         // set fund admin
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(acl_fund_admin)
         );
         // assert role is granted
         acl_manage::is_funds_admin(signer::address_of(acl_fund_admin));
 
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(periphery_account)
         );
 
@@ -687,7 +739,7 @@ module aave_pool::ecosystem_reserve_v2 {
                 deposit,
                 token_address,
                 start_time,
-                stop_time,
+                stop_time
             );
 
         assert!(stream_id == 1, 1);
@@ -713,13 +765,21 @@ module aave_pool::ecosystem_reserve_v2 {
         assert!(stream_rate_per_second == 2, 1);
     }
 
-    #[test(aave_role_super_admin = @aave_acl, periphery_account = @aave_pool, acl_fund_admin = @0x111, user_account = @0x222, creator = @0x1)]
+    #[
+        test(
+            aave_role_super_admin = @aave_acl,
+            periphery_account = @aave_pool,
+            acl_fund_admin = @0x111,
+            user_account = @0x222,
+            creator = @0x1
+        )
+    ]
     fun test_delta_of(
         aave_role_super_admin: &signer,
         periphery_account: &signer,
         acl_fund_admin: &signer,
         user_account: &signer,
-        creator: &signer,
+        creator: &signer
     ) acquires EcosystemReserveV2Data {
         // init acl
         acl_manage::test_init_module(aave_role_super_admin);
@@ -733,13 +793,13 @@ module aave_pool::ecosystem_reserve_v2 {
         let _ts_one_hour_ago = timestamp::now_seconds() - one_hour_in_secs;
 
         // set fund admin
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(acl_fund_admin)
         );
         // assert role is granted
         acl_manage::is_funds_admin(signer::address_of(acl_fund_admin));
 
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(periphery_account)
         );
 
@@ -762,7 +822,7 @@ module aave_pool::ecosystem_reserve_v2 {
                 deposit,
                 token_address,
                 start_time,
-                stop_time,
+                stop_time
             );
 
         assert!(stream_id == 1, 1);
@@ -776,13 +836,21 @@ module aave_pool::ecosystem_reserve_v2 {
         assert!(res == 3600, 1);
     }
 
-    #[test(aave_role_super_admin = @aave_acl, periphery_account = @aave_pool, acl_fund_admin = @0x111, user_account = @0x222, creator = @0x1)]
+    #[
+        test(
+            aave_role_super_admin = @aave_acl,
+            periphery_account = @aave_pool,
+            acl_fund_admin = @0x111,
+            user_account = @0x222,
+            creator = @0x1
+        )
+    ]
     fun test_get_next_stream_id(
         aave_role_super_admin: &signer,
         periphery_account: &signer,
         acl_fund_admin: &signer,
         user_account: &signer,
-        creator: &signer,
+        creator: &signer
     ) acquires EcosystemReserveV2Data {
         // init acl
         acl_manage::test_init_module(aave_role_super_admin);
@@ -796,13 +864,13 @@ module aave_pool::ecosystem_reserve_v2 {
         let _ts_one_hour_ago = timestamp::now_seconds() - one_hour_in_secs;
 
         // set fund admin
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(acl_fund_admin)
         );
         // assert role is granted
         acl_manage::is_funds_admin(signer::address_of(acl_fund_admin));
 
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(periphery_account)
         );
 
@@ -825,7 +893,7 @@ module aave_pool::ecosystem_reserve_v2 {
                 deposit,
                 token_address,
                 start_time,
-                stop_time,
+                stop_time
             );
 
         assert!(stream_id == 1, 1);

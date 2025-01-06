@@ -9,7 +9,7 @@ module aave_pool::rewards_controller {
 
     use aave_acl::acl_manage::Self;
     use aave_math::math_utils;
-    use aave_mock_oracle::oracle::{Self, RewardOracle};
+    use aave_oracle::reward_oracle::{Self, RewardOracle};
 
     use aave_pool::a_token_factory;
     use aave_pool::transfer_strategy::check_is_emission_admin;
@@ -52,17 +52,17 @@ module aave_pool::rewards_controller {
         assets: SmartTable<address, AssetData>,
         is_reward_enabled: SmartTable<address, bool>,
         rewards_list: vector<address>,
-        assets_list: vector<address>,
+        assets_list: vector<address>
     }
 
     fun assert_access(account: address) {
         assert!(
-            acl_manage::is_rewards_controller_admin_role(account),
-            NOT_REWARDS_CONTROLLER_ADMIN,
+            acl_manage::is_rewards_controller_admin(account),
+            NOT_REWARDS_CONTROLLER_ADMIN
         );
     }
 
-    public fun initialize(sender: &signer, emission_manager: address,) {
+    public fun initialize(sender: &signer, emission_manager: address) {
         let state_object_constructor_ref =
             &object::create_named_object(sender, REWARDS_CONTROLLER_NAME);
         let state_object_signer = &object::generate_signer(state_object_constructor_ref);
@@ -78,8 +78,8 @@ module aave_pool::rewards_controller {
                 assets: smart_table::new<address, AssetData>(),
                 is_reward_enabled: smart_table::new<address, bool>(),
                 rewards_list: vector[],
-                assets_list: vector[],
-            },
+                assets_list: vector[]
+            }
         );
     }
 
@@ -99,17 +99,38 @@ module aave_pool::rewards_controller {
         AssetData { rewards, available_rewards, available_rewards_count, decimals }
     }
 
-    struct RewardData has key, store, drop {
+    struct RewardData has key, store, drop, copy {
         index: u128,
         emission_per_second: u128,
         last_update_timestamp: u32,
         distribution_end: u32,
-        users_data: std::simple_map::SimpleMap<address, UserData>,
+        users_data: std::simple_map::SimpleMap<address, UserData>
+    }
+
+    public fun create_reward_data(
+        index: u128,
+        emission_per_second: u128,
+        last_update_timestamp: u32,
+        distribution_end: u32,
+        users_data: std::simple_map::SimpleMap<address, UserData>
+    ): RewardData {
+        RewardData {
+            index,
+            emission_per_second,
+            last_update_timestamp,
+            distribution_end,
+            users_data
+        }
     }
 
     struct UserData has key, store, copy, drop {
         index: u128,
         accrued: u128
+    }
+
+    #[test_only]
+    public fun create_user_data(index: u128, accrued: u128): UserData {
+        UserData { index, accrued }
     }
 
     struct UserAssetBalance has store, drop, copy {
@@ -186,8 +207,27 @@ module aave_pool::rewards_controller {
         claimer: address, user: address, rewards_controller_address: address
     ) acquires RewardsControllerData {
         assert!(
-            get_claimer(user, rewards_controller_address) == claimer, CLAIMER_UNAUTHORIZED
+            get_claimer(user, rewards_controller_address) == claimer,
+            CLAIMER_UNAUTHORIZED
         );
+    }
+
+    #[test_only]
+    public fun add_asset(
+        rewards_controller_address: address, asset_addr: address, asset: AssetData
+    ) acquires RewardsControllerData {
+        let rewards_controller_data =
+            borrow_global_mut<RewardsControllerData>(rewards_controller_address);
+        smart_table::add(&mut rewards_controller_data.assets, asset_addr, asset);
+    }
+
+    #[test_only]
+    public fun enable_reward(
+        rewards_controller_address: address, reward: address
+    ) acquires RewardsControllerData {
+        let rewards_controller_data =
+            borrow_global_mut<RewardsControllerData>(rewards_controller_address);
+        smart_table::add(&mut rewards_controller_data.is_reward_enabled, reward, true);
     }
 
     #[view]
@@ -255,13 +295,13 @@ module aave_pool::rewards_controller {
                 install_pull_rewards_transfer_strategy(
                     reward,
                     pull_rewards_transfer_strategy_get_strategy(config_el),
-                    rewards_controller_address,
+                    rewards_controller_address
                 );
             } else {
                 install_staked_token_transfer_strategy(
                     reward,
                     staked_token_transfer_strategy_get_strategy(config_el),
-                    rewards_controller_address,
+                    rewards_controller_address
                 );
             };
 
@@ -271,7 +311,7 @@ module aave_pool::rewards_controller {
                 aave_pool::transfer_strategy::get_reward_oracle(
                     vector::borrow(&config, i)
                 ),
-                rewards_controller_address,
+                rewards_controller_address
             );
         };
         configure_assets_internal(config, rewards_controller_address);
@@ -312,6 +352,23 @@ module aave_pool::rewards_controller {
         set_reward_oracle_internal(reward, reward_oracle);
     }
 
+    #[test_only]
+    public fun test_handle_action(
+        caller: &signer,
+        user: address,
+        total_supply: u256,
+        user_balance: u256,
+        rewards_controller_address: address
+    ) acquires RewardsControllerData {
+        handle_action(
+            caller,
+            user,
+            total_supply,
+            user_balance,
+            rewards_controller_address
+        )
+    }
+
     fun handle_action(
         caller: &signer,
         user: address,
@@ -320,7 +377,13 @@ module aave_pool::rewards_controller {
         rewards_controller_address: address
     ) acquires RewardsControllerData {
         let addr = signer::address_of(caller);
-        update_data(addr, user, user_balance, total_supply, rewards_controller_address);
+        update_data(
+            addr,
+            user,
+            user_balance,
+            total_supply,
+            rewards_controller_address
+        );
     }
 
     public fun claim_rewards(
@@ -340,7 +403,28 @@ module aave_pool::rewards_controller {
             addr,
             to,
             reward,
-            rewards_controller_address,
+            rewards_controller_address
+        )
+    }
+
+    #[test_only]
+    public fun test_claim_rewards_on_behalf(
+        caller: &signer,
+        assets: vector<address>,
+        amount: u256,
+        user: address,
+        to: address,
+        reward: address,
+        rewards_controller_address: address
+    ): u256 acquires RewardsControllerData {
+        claim_rewards_on_behalf(
+            caller,
+            assets,
+            amount,
+            user,
+            to,
+            reward,
+            rewards_controller_address
         )
     }
 
@@ -364,7 +448,24 @@ module aave_pool::rewards_controller {
             user,
             to,
             reward,
-            rewards_controller_address,
+            rewards_controller_address
+        )
+    }
+
+    #[test_only]
+    public fun test_claim_rewards_to_self(
+        caller: &signer,
+        assets: vector<address>,
+        amount: u256,
+        reward: address,
+        rewards_controller_address: address
+    ): u256 acquires RewardsControllerData {
+        claim_rewards_to_self(
+            caller,
+            assets,
+            amount,
+            reward,
+            rewards_controller_address
         )
     }
 
@@ -384,7 +485,7 @@ module aave_pool::rewards_controller {
             addr,
             addr,
             reward,
-            rewards_controller_address,
+            rewards_controller_address
         )
     }
 
@@ -401,7 +502,24 @@ module aave_pool::rewards_controller {
             addr,
             addr,
             to,
-            rewards_controller_address,
+            rewards_controller_address
+        )
+    }
+
+    #[test_only]
+    public fun test_claim_all_rewards_on_behalf(
+        caller: &signer,
+        assets: vector<address>,
+        user: address,
+        to: address,
+        rewards_controller_address: address
+    ): (vector<address>, vector<u256>) acquires RewardsControllerData {
+        claim_all_rewards_on_behalf(
+            caller,
+            assets,
+            user,
+            to,
+            rewards_controller_address
         )
     }
 
@@ -421,8 +539,15 @@ module aave_pool::rewards_controller {
             addr,
             user,
             to,
-            rewards_controller_address,
+            rewards_controller_address
         )
+    }
+
+    #[test_only]
+    public fun test_claim_all_rewards_to_self(
+        caller: &signer, assets: vector<address>, rewards_controller_address: address
+    ): (vector<address>, vector<u256>) acquires RewardsControllerData {
+        claim_all_rewards_to_self(caller, assets, rewards_controller_address)
     }
 
     fun claim_all_rewards_to_self(
@@ -435,7 +560,7 @@ module aave_pool::rewards_controller {
             addr,
             addr,
             addr,
-            rewards_controller_address,
+            rewards_controller_address
         )
     }
 
@@ -452,8 +577,8 @@ module aave_pool::rewards_controller {
         event::emit(ClaimerSet { user, claimer });
     }
 
-    fun get_user_asset_balances(assets: vector<address>, user: address)
-        : vector<UserAssetBalance> {
+    fun get_user_asset_balances(assets: vector<address>, user: address):
+        vector<UserAssetBalance> {
         let user_asset_balances = vector[];
         for (i in 0..vector::length(&assets)) {
             let asset = *vector::borrow(&assets, i);
@@ -462,7 +587,7 @@ module aave_pool::rewards_controller {
 
             vector::push_back(
                 &mut user_asset_balances,
-                UserAssetBalance { asset, user_balance, total_supply },
+                UserAssetBalance { asset, user_balance, total_supply }
             );
         };
         user_asset_balances
@@ -486,7 +611,7 @@ module aave_pool::rewards_controller {
         update_data_multiple(
             user,
             get_user_asset_balances(assets, user),
-            rewards_controller_address,
+            rewards_controller_address
         );
 
         let rewards_controller_data =
@@ -518,28 +643,28 @@ module aave_pool::rewards_controller {
         };
 
         if (smart_table::contains(
-                &rewards_controller_data.pull_rewards_transfer_strategy_table, reward
-            )) {
+            &rewards_controller_data.pull_rewards_transfer_strategy_table, reward
+        )) {
             transfer_pull_rewards_transfer_strategy_rewards(
                 caller,
                 to,
                 reward,
                 total_rewards,
-                rewards_controller_data,
+                rewards_controller_data
             )
         } else if (smart_table::contains(
-                &rewards_controller_data.pull_rewards_transfer_strategy_table, reward
-            )) {
+            &rewards_controller_data.pull_rewards_transfer_strategy_table, reward
+        )) {
             transfer_staked_token_transfer_strategy_rewards(
                 caller,
                 to,
                 reward,
                 total_rewards,
-                rewards_controller_data,
+                rewards_controller_data
             )
         };
         event::emit(
-            RewardsClaimed { user, reward: claimer, to, claimer, amount: total_rewards },
+            RewardsClaimed { user, reward: claimer, to, claimer, amount: total_rewards }
         );
 
         total_rewards
@@ -553,18 +678,18 @@ module aave_pool::rewards_controller {
         to: address,
         rewards_controller_address: address
     ): (vector<address>, vector<u256>) acquires RewardsControllerData {
-        let rewards_list = vector[];
-        let claimed_amounts = vector[];
-
         update_data_multiple(
             user,
             get_user_asset_balances(assets, user),
-            rewards_controller_address,
+            rewards_controller_address
         );
 
         let rewards_controller_data =
             borrow_global_mut<RewardsControllerData>(rewards_controller_address);
         let rewards_list_length = vector::length(&rewards_controller_data.rewards_list);
+
+        let rewards_list = rewards_controller_data.rewards_list;
+        let claimed_amounts = vector[];
 
         for (i in 0..vector::length(&assets)) {
             let asset = *vector::borrow(&assets, i);
@@ -581,10 +706,15 @@ module aave_pool::rewards_controller {
 
                 let reward_amount = (user_data.accrued as u256);
                 if (reward_amount != 0) {
-                    let claimed_amounts_j = *vector::borrow_mut(&mut claimed_amounts, j);
-                    vector::insert(
-                        &mut claimed_amounts, j, claimed_amounts_j + reward_amount
-                    );
+                    if (vector::length(&claimed_amounts) > 0) {
+                        let claimed_amounts_j =
+                            *vector::borrow_mut(&mut claimed_amounts, j);
+                        vector::insert(
+                            &mut claimed_amounts, j, claimed_amounts_j + reward_amount
+                        );
+                    } else {
+                        vector::insert(&mut claimed_amounts, j, reward_amount);
+                    };
                     user_data.accrued = 0;
                 };
             };
@@ -592,26 +722,26 @@ module aave_pool::rewards_controller {
 
         for (i in 0..rewards_list_length) {
             if (smart_table::contains(
-                    &rewards_controller_data.pull_rewards_transfer_strategy_table,
-                    *vector::borrow(&rewards_list, i),
-                )) {
+                &rewards_controller_data.pull_rewards_transfer_strategy_table,
+                *vector::borrow(&rewards_list, i)
+            )) {
                 transfer_pull_rewards_transfer_strategy_rewards(
                     caller,
                     to,
                     *vector::borrow(&rewards_list, i),
                     *vector::borrow(&claimed_amounts, i),
-                    rewards_controller_data,
+                    rewards_controller_data
                 )
             } else if (smart_table::contains(
-                    &rewards_controller_data.pull_rewards_transfer_strategy_table,
-                    *vector::borrow(&rewards_list, i),
-                )) {
+                &rewards_controller_data.pull_rewards_transfer_strategy_table,
+                *vector::borrow(&rewards_list, i)
+            )) {
                 transfer_staked_token_transfer_strategy_rewards(
                     caller,
                     to,
                     *vector::borrow(&rewards_list, i),
                     *vector::borrow(&claimed_amounts, i),
-                    rewards_controller_data,
+                    rewards_controller_data
                 )
             };
             event::emit(
@@ -621,7 +751,7 @@ module aave_pool::rewards_controller {
                     to,
                     claimer,
                     amount: *vector::borrow(&claimed_amounts, i)
-                },
+                }
             );
         };
         (rewards_list, claimed_amounts)
@@ -644,7 +774,7 @@ module aave_pool::rewards_controller {
                 to,
                 reward,
                 amount,
-                pull_rewards_transfer_strategy,
+                pull_rewards_transfer_strategy
             );
 
         assert!(success, TRANSFER_ERROR);
@@ -667,7 +797,7 @@ module aave_pool::rewards_controller {
                 to,
                 reward,
                 amount,
-                staked_token_transfer_strategy,
+                staked_token_transfer_strategy
             );
 
         assert!(success, TRANSFER_ERROR);
@@ -683,11 +813,11 @@ module aave_pool::rewards_controller {
         smart_table::upsert(
             &mut rewards_controller_data.pull_rewards_transfer_strategy_table,
             reward,
-            pull_rewards_transfer_strategy,
+            pull_rewards_transfer_strategy
         );
 
         event::emit(
-            PullRewardsTransferStrategyInstalled { reward, pull_rewards_transfer_strategy },
+            PullRewardsTransferStrategyInstalled { reward, pull_rewards_transfer_strategy }
         );
     }
 
@@ -701,18 +831,20 @@ module aave_pool::rewards_controller {
         smart_table::upsert(
             &mut rewards_controller_data.staked_token_transfer_strategy_table,
             reward,
-            staked_token_transfer_strategy,
+            staked_token_transfer_strategy
         );
 
         event::emit(
-            StakedTokenTransferStrategyInstalled { reward, staked_token_transfer_strategy },
+            StakedTokenTransferStrategyInstalled { reward, staked_token_transfer_strategy }
         );
     }
 
     public fun set_reward_oracle_internal(
         reward: address, reward_oracle: RewardOracle
     ) acquires RewardsControllerData {
-        assert!(oracle::latest_answer(reward_oracle) > 0, ORACLE_MUST_RETURN_PRICE);
+        assert!(
+            reward_oracle::latest_answer(reward_oracle) > 0, ORACLE_MUST_RETURN_PRICE
+        );
 
         let rewards_controller_data =
             borrow_global_mut<RewardsControllerData>(rewards_controller_address());
@@ -730,7 +862,7 @@ module aave_pool::rewards_controller {
             borrow_global<RewardsControllerData>(rewards_controller_address);
         assert!(
             signer::address_of(sender) == rewards_controller_data.emission_manager,
-            ONLY_EMISSION_MANAGER,
+            ONLY_EMISSION_MANAGER
         );
     }
 
@@ -746,8 +878,21 @@ module aave_pool::rewards_controller {
             (rewards_data.index as u256),
             (rewards_data.emission_per_second as u256),
             (rewards_data.last_update_timestamp as u256),
-            (rewards_data.distribution_end as u256),
+            (rewards_data.distribution_end as u256)
         )
+    }
+
+    #[test_only]
+    public fun add_rewards_data(
+        asset: address,
+        reward: address,
+        rewards_controller_address: address,
+        reward_data: RewardData
+    ) acquires RewardsControllerData {
+        let rewards_controller_data =
+            borrow_global_mut<RewardsControllerData>(rewards_controller_address);
+        let asset = smart_table::borrow_mut(&mut rewards_controller_data.assets, asset);
+        simple_map::upsert(&mut asset.rewards, reward, reward_data);
     }
 
     #[view]
@@ -761,7 +906,7 @@ module aave_pool::rewards_controller {
         get_asset_index_internal(
             rewards_data,
             a_token_factory::scaled_total_supply(asset),
-            math_utils::pow(10, (asset_el.decimals as u256)),
+            math_utils::pow(10, (asset_el.decimals as u256))
         )
     }
 
@@ -794,8 +939,25 @@ module aave_pool::rewards_controller {
         available_rewards
     }
 
+    #[test_only]
+    public fun add_rewards_by_asset(
+        asset: address,
+        rewards_controller_address: address,
+        i: u128,
+        addr: address
+    ) acquires RewardsControllerData {
+        let rewards_controller_data =
+            borrow_global_mut<RewardsControllerData>(rewards_controller_address);
+        let asset = smart_table::borrow_mut(&mut rewards_controller_data.assets, asset);
+        // asset.available_rewards_count = asset.available_rewards_count + 1;
+
+        simple_map::upsert(&mut asset.available_rewards, i, addr);
+    }
+
     #[view]
-    public fun get_rewards_list(rewards_controller_address: address): vector<address> acquires RewardsControllerData {
+    public fun get_rewards_list(
+        rewards_controller_address: address
+    ): vector<address> acquires RewardsControllerData {
         let rewards_controller_data =
             borrow_global<RewardsControllerData>(rewards_controller_address);
         rewards_controller_data.rewards_list
@@ -803,7 +965,10 @@ module aave_pool::rewards_controller {
 
     #[view]
     public fun get_user_asset_index(
-        user: address, asset: address, reward: address, rewards_controller_address: address
+        user: address,
+        asset: address,
+        reward: address,
+        rewards_controller_address: address
     ): u256 acquires RewardsControllerData {
         let rewards_controller_data =
             borrow_global<RewardsControllerData>(rewards_controller_address);
@@ -811,6 +976,21 @@ module aave_pool::rewards_controller {
         let reward_data: &RewardData = simple_map::borrow(&asset.rewards, &reward);
         let user_data: &UserData = simple_map::borrow(&reward_data.users_data, &user);
         (user_data.index as u256)
+    }
+
+    public fun add_user_asset_index(
+        user: address,
+        asset: address,
+        reward: address,
+        rewards_controller_address: address,
+        user_data: UserData
+    ) acquires RewardsControllerData {
+        let rewards_controller_data =
+            borrow_global_mut<RewardsControllerData>(rewards_controller_address);
+        let asset = smart_table::borrow_mut(&mut rewards_controller_data.assets, asset);
+        let reward_data: &mut RewardData =
+            simple_map::borrow_mut(&mut asset.rewards, &reward);
+        simple_map::upsert(&mut reward_data.users_data, user, user_data);
     }
 
     #[view]
@@ -828,10 +1008,12 @@ module aave_pool::rewards_controller {
             let asset =
                 smart_table::borrow(
                     &rewards_controller_data.assets,
-                    *vector::borrow(&assets_list, i),
+                    *vector::borrow(&assets_list, i)
                 );
             let reward_data: &RewardData = simple_map::borrow(&asset.rewards, &reward);
-            let user_data: &UserData = simple_map::borrow(&reward_data.users_data, &user);
+            let user_data: &UserData = simple_map::borrow(
+                &reward_data.users_data, &user
+            );
 
             total_accrued = total_accrued + (user_data.accrued as u256);
         };
@@ -850,8 +1032,32 @@ module aave_pool::rewards_controller {
             user,
             reward,
             get_user_asset_balances(assets, user),
-            rewards_controller_address,
+            rewards_controller_address
         )
+    }
+
+    #[test_only]
+    public fun add_to_rewards_list(
+        reward: address, rewards_controller_address: address
+    ) acquires RewardsControllerData {
+        let rewards_controller_data =
+            borrow_global_mut<RewardsControllerData>(rewards_controller_address);
+        vector::push_back(
+            &mut rewards_controller_data.rewards_list,
+            reward
+        );
+    }
+
+    #[test_only]
+    public fun add_to_assets_list(
+        asset: address, rewards_controller_address: address
+    ) acquires RewardsControllerData {
+        let rewards_controller_data =
+            borrow_global_mut<RewardsControllerData>(rewards_controller_address);
+        vector::push_back(
+            &mut rewards_controller_data.assets_list,
+            asset
+        );
     }
 
     #[view]
@@ -870,12 +1076,12 @@ module aave_pool::rewards_controller {
             for (r in 0..rewards_list_len) {
                 vector::push_back(
                     &mut rewards_list,
-                    *vector::borrow(&rewards_controller_data.rewards_list, r),
+                    *vector::borrow(&rewards_controller_data.rewards_list, r)
                 );
                 let asset_el =
                     smart_table::borrow(
                         &rewards_controller_data.assets,
-                        vector::borrow(&user_asset_balances, r).asset,
+                        vector::borrow(&user_asset_balances, r).asset
                     );
                 let rewards_el =
                     simple_map::borrow(
@@ -895,8 +1101,8 @@ module aave_pool::rewards_controller {
                             user,
                             *vector::borrow(&rewards_list, r),
                             vector::borrow(&user_asset_balances, i),
-                            rewards_controller_data,
-                        ),
+                            rewards_controller_data
+                        )
                 );
             };
         };
@@ -931,7 +1137,7 @@ module aave_pool::rewards_controller {
                 old_distribution_end,
                 new_distribution_end: (new_distribution_end as u256),
                 asset_index: (reward_data.index as u256)
-            },
+            }
         );
     }
 
@@ -962,14 +1168,14 @@ module aave_pool::rewards_controller {
             let decimals = asset_config.decimals;
             assert!(
                 decimals != 0 && reward_config.last_update_timestamp != 0,
-                DISTRIBUTION_DOES_NOT_EXIST,
+                DISTRIBUTION_DOES_NOT_EXIST
             );
 
             let (new_index, _) =
                 update_reward_data(
                     reward_config,
                     a_token_factory::scaled_total_supply(asset),
-                    math_utils::pow(10, (decimals as u256)),
+                    math_utils::pow(10, (decimals as u256))
                 );
 
             let old_emission_per_second = (reward_config.emission_per_second as u256);
@@ -986,7 +1192,7 @@ module aave_pool::rewards_controller {
                     old_distribution_end: (reward_config.distribution_end as u256),
                     new_distribution_end: (reward_config.distribution_end as u256),
                     asset_index: new_index
-                },
+                }
             );
         }
     }
@@ -1035,7 +1241,7 @@ module aave_pool::rewards_controller {
                 update_reward_data(
                     reward_config,
                     total_supply,
-                    math_utils::pow(10, (decimals as u256)),
+                    math_utils::pow(10, (decimals as u256))
                 );
 
             let old_emissions_per_second = reward_config.emission_per_second;
@@ -1054,7 +1260,7 @@ module aave_pool::rewards_controller {
                     old_distribution_end: (old_distribution_end as u256),
                     new_distribution_end: (reward_config.distribution_end as u256),
                     asset_index: new_index
-                },
+                }
             );
         }
     }
@@ -1096,7 +1302,7 @@ module aave_pool::rewards_controller {
                     user_balance,
                     new_asset_index,
                     (user_index as u256),
-                    asset_unit,
+                    asset_unit
                 );
 
                 user.accrued = user.accrued + (rewards_accrued as u128);
@@ -1114,14 +1320,18 @@ module aave_pool::rewards_controller {
     ) acquires RewardsControllerData {
         let rewards_controller_data =
             borrow_global_mut<RewardsControllerData>(rewards_controller_address);
-        let asset_el = smart_table::borrow_mut(&mut rewards_controller_data.assets, asset);
+        let asset_el = smart_table::borrow_mut(
+            &mut rewards_controller_data.assets, asset
+        );
         let num_available_rewards = asset_el.available_rewards_count;
         let asset_unit = math_utils::pow(10, (asset_el.decimals as u256));
 
         if (num_available_rewards == 0) { return };
 
         for (r in 0..num_available_rewards) {
-            let reward: address = *simple_map::borrow(&mut asset_el.available_rewards, &r);
+            let reward: address = *simple_map::borrow(
+                &mut asset_el.available_rewards, &r
+            );
             let reward_data: &mut RewardData =
                 simple_map::borrow_mut(&mut asset_el.rewards, &reward);
 
@@ -1134,7 +1344,7 @@ module aave_pool::rewards_controller {
                     user,
                     user_balance,
                     new_asset_index,
-                    asset_unit,
+                    asset_unit
                 );
 
             if (reward_data_updated || user_data_updated) {
@@ -1146,7 +1356,7 @@ module aave_pool::rewards_controller {
                         asset_index: new_asset_index,
                         user_index: new_asset_index,
                         rewards_accrued
-                    },
+                    }
                 )
             };
         };
@@ -1164,7 +1374,7 @@ module aave_pool::rewards_controller {
                 user,
                 user_asset_balances_i.user_balance,
                 user_asset_balances_i.total_supply,
-                rewards_controller_address,
+                rewards_controller_address
             );
         };
     }
@@ -1186,7 +1396,9 @@ module aave_pool::rewards_controller {
                     &rewards_controller_data.assets, user_asset_balances_i.asset
                 );
             let reward_data: &RewardData = simple_map::borrow(&asset.rewards, &reward);
-            let user_data: &UserData = simple_map::borrow(&reward_data.users_data, &user);
+            let user_data: &UserData = simple_map::borrow(
+                &reward_data.users_data, &user
+            );
 
             if (user_asset_balances_i.user_balance == 0) {
                 unclaimed_rewards = unclaimed_rewards + (user_data.accrued as u256);
@@ -1196,7 +1408,7 @@ module aave_pool::rewards_controller {
                         user,
                         reward,
                         user_asset_balances_i,
-                        rewards_controller_data,
+                        rewards_controller_data
                     );
                 unclaimed_rewards = unclaimed_rewards + pending_rewards
                     + (user_data.accrued as u256);
@@ -1232,11 +1444,19 @@ module aave_pool::rewards_controller {
         let user_data: &UserData = simple_map::borrow(&reward_data.users_data, &user);
         let index = (user_data.index as u256);
 
-        get_rewards(user_asset_balance.user_balance, next_index, index, asset_unit)
+        get_rewards(
+            user_asset_balance.user_balance,
+            next_index,
+            index,
+            asset_unit
+        )
     }
 
     fun get_rewards(
-        user_balance: u256, reserve_index: u256, user_index: u256, asset_unit: u256
+        user_balance: u256,
+        reserve_index: u256,
+        user_index: u256,
+        asset_unit: u256
     ): u256 {
         let result = user_balance * (reserve_index - user_index);
         result / asset_unit
@@ -1280,7 +1500,9 @@ module aave_pool::rewards_controller {
     }
 
     #[view]
-    public fun get_emission_manager(rewards_controller_address: address): address acquires RewardsControllerData {
+    public fun get_emission_manager(
+        rewards_controller_address: address
+    ): address acquires RewardsControllerData {
         let rewards_controller_data =
             borrow_global<RewardsControllerData>(rewards_controller_address);
         rewards_controller_data.emission_manager

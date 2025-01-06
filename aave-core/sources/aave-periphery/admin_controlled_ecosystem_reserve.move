@@ -8,7 +8,7 @@ module aave_pool::admin_controlled_ecosystem_reserve {
         Self,
         Object,
         ExtendRef as ObjExtendRef,
-        TransferRef as ObjectTransferRef,
+        TransferRef as ObjectTransferRef
     };
     use aptos_framework::event;
 
@@ -22,17 +22,17 @@ module aave_pool::admin_controlled_ecosystem_reserve {
 
     #[event]
     struct NewFundsAdmin has store, drop {
-        funds_admin: address,
+        funds_admin: address
     }
 
     struct AdminControlledEcosystemReserveData has key {
         fungible_assets: SmartTable<Object<Metadata>, Object<FungibleStore>>,
         extend_ref: ObjExtendRef,
         transfer_ref: ObjectTransferRef,
-        funds_admin: address,
+        funds_admin: address
     }
 
-    public fun initialize(sender: &signer,) {
+    public fun initialize(sender: &signer) {
         let state_object_constructor_ref =
             &object::create_named_object(sender, ADMIN_CONTROLLED_ECOSYSTEM_RESERVE);
         let state_object_signer = &object::generate_signer(state_object_constructor_ref);
@@ -43,15 +43,15 @@ module aave_pool::admin_controlled_ecosystem_reserve {
                 fungible_assets: smart_table::new<Object<Metadata>, Object<FungibleStore>>(),
                 transfer_ref: object::generate_transfer_ref(state_object_constructor_ref),
                 extend_ref: object::generate_extend_ref(state_object_constructor_ref),
-                funds_admin: signer::address_of(sender),
-            },
+                funds_admin: signer::address_of(sender)
+            }
         );
     }
 
     public fun check_is_funds_admin(account: address) {
         assert!(
-            acl_manage::is_admin_controlled_ecosystem_reserve_funds_admin_role(account),
-            NOT_FUNDS_ADMIN,
+            acl_manage::is_admin_controlled_ecosystem_reserve_funds_admin(account),
+            NOT_FUNDS_ADMIN
         );
     }
 
@@ -75,31 +75,34 @@ module aave_pool::admin_controlled_ecosystem_reserve {
     }
 
     #[view]
-    public fun admin_controlled_ecosystem_reserve_object()
-        : Object<AdminControlledEcosystemReserveData> {
+    public fun admin_controlled_ecosystem_reserve_object():
+        Object<AdminControlledEcosystemReserveData> {
         object::address_to_object<AdminControlledEcosystemReserveData>(
             admin_controlled_ecosystem_reserve_address()
         )
     }
 
-    fun set_funds_admin_internal(admin: &signer, account: address) acquires AdminControlledEcosystemReserveData {
+    fun set_funds_admin_internal(
+        admin: &signer, account: address
+    ) acquires AdminControlledEcosystemReserveData {
         let admin_controlled_ecosystem_reserve_data =
             borrow_global_mut<AdminControlledEcosystemReserveData>(
                 admin_controlled_ecosystem_reserve_address()
             );
-        acl_manage::remove_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::remove_admin_controlled_ecosystem_reserve_funds_admin(
             admin, admin_controlled_ecosystem_reserve_data.funds_admin
         );
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
-            admin, account
-        );
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(admin, account);
         admin_controlled_ecosystem_reserve_data.funds_admin = account;
 
         event::emit(NewFundsAdmin { funds_admin: account });
     }
 
     public fun transfer_out(
-        sender: &signer, asset_metadata: Object<Metadata>, receiver: address, amount: u64
+        sender: &signer,
+        asset_metadata: Object<Metadata>,
+        receiver: address,
+        amount: u64
     ) acquires AdminControlledEcosystemReserveData {
         check_is_funds_admin(signer::address_of(sender));
 
@@ -109,12 +112,12 @@ module aave_pool::admin_controlled_ecosystem_reserve {
             );
 
         if (smart_table::contains(
-                &admin_controlled_ecosystem_reserve_data.fungible_assets, asset_metadata
-            )) {
+            &admin_controlled_ecosystem_reserve_data.fungible_assets, asset_metadata
+        )) {
             let collector_fungible_store =
                 smart_table::borrow(
                     &admin_controlled_ecosystem_reserve_data.fungible_assets,
-                    asset_metadata,
+                    asset_metadata
                 );
             let collector_fungible_store_signer =
                 object::generate_signer_for_extending(
@@ -129,7 +132,7 @@ module aave_pool::admin_controlled_ecosystem_reserve {
                 &collector_fungible_store_signer,
                 *collector_fungible_store,
                 receiver_fungible_store,
-                amount,
+                amount
             );
         }
     }
@@ -155,25 +158,33 @@ module aave_pool::admin_controlled_ecosystem_reserve {
             utf8(b"http://example.com"),
             vector[true, true, true],
             @0x1,
-            false,
+            false
         );
         let metadata_address =
             object::create_object_address(&signer::address_of(creator), test_symbol);
         object::address_to_object<Metadata>(metadata_address)
     }
 
-    #[test(fa_creator = @aave_pool, aave_role_super_admin = @aave_acl, periphery_account = @aave_pool, acl_fund_admin = @0x111, user_account = @0x222)]
+    #[
+        test(
+            fa_creator = @aave_pool,
+            aave_role_super_admin = @aave_acl,
+            periphery_account = @aave_pool,
+            acl_fund_admin = @0x111,
+            user_account = @0x222
+        )
+    ]
     fun test_basic_flow(
         fa_creator: &signer,
         aave_role_super_admin: &signer,
         periphery_account: &signer,
         acl_fund_admin: &signer,
-        user_account: &signer,
+        user_account: &signer
     ) acquires AdminControlledEcosystemReserveData {
         // init acl
         acl_manage::test_init_module(aave_role_super_admin);
         // set fund admin
-        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin_role(
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
             aave_role_super_admin, signer::address_of(acl_fund_admin)
         );
         // assert role is granted
@@ -186,7 +197,10 @@ module aave_pool::admin_controlled_ecosystem_reserve {
         let _creator_address = signer::address_of(fa_creator);
         let user_address = signer::address_of(user_account);
         standard_token::mint_to_primary_stores(
-            fa_creator, metadata, vector[user_address], vector[100]
+            fa_creator,
+            metadata,
+            vector[user_address],
+            vector[100]
         );
         assert!(
             primary_fungible_store::balance(user_address, metadata) == 100, TEST_SUCCESS
@@ -198,7 +212,7 @@ module aave_pool::admin_controlled_ecosystem_reserve {
                 fa_creator,
                 metadata,
                 vector[user_address],
-                vector[100],
+                vector[100]
             );
         assert!(fungible_asset::amount(&fa) == 100, TEST_SUCCESS);
 
@@ -221,9 +235,87 @@ module aave_pool::admin_controlled_ecosystem_reserve {
         smart_table::upsert(
             &mut admin_controlled_ecosystem_reserve_data.fungible_assets,
             asset_metadata,
-            collector_fungible_store,
+            collector_fungible_store
         );
 
         transfer_out(acl_fund_admin, metadata, user_address, 50);
+    }
+
+    #[
+        test(
+            fa_creator = @aave_pool,
+            aave_role_super_admin = @aave_acl,
+            periphery_account = @aave_pool,
+            acl_fund_admin = @0x111,
+            user_account = @0x222
+        )
+    ]
+    fun test_set_funds_admin_internal(
+        fa_creator: &signer,
+        aave_role_super_admin: &signer,
+        periphery_account: &signer,
+        acl_fund_admin: &signer,
+        user_account: &signer
+    ) acquires AdminControlledEcosystemReserveData {
+        // init acl
+        acl_manage::test_init_module(aave_role_super_admin);
+        // set fund admin
+        acl_manage::add_admin_controlled_ecosystem_reserve_funds_admin(
+            aave_role_super_admin, signer::address_of(acl_fund_admin)
+        );
+        // assert role is granted
+        check_is_funds_admin(signer::address_of(acl_fund_admin));
+
+        // create test token
+        let metadata = create_test_fa(fa_creator);
+
+        // mint coins to user
+        let _creator_address = signer::address_of(fa_creator);
+        let user_address = signer::address_of(user_account);
+        standard_token::mint_to_primary_stores(
+            fa_creator,
+            metadata,
+            vector[user_address],
+            vector[100]
+        );
+        assert!(
+            primary_fungible_store::balance(user_address, metadata) == 100, TEST_SUCCESS
+        );
+
+        // user withdraws all fas he has
+        let fa =
+            standard_token::withdraw_from_primary_stores(
+                fa_creator,
+                metadata,
+                vector[user_address],
+                vector[100]
+            );
+        assert!(fungible_asset::amount(&fa) == 100, TEST_SUCCESS);
+
+        initialize(periphery_account);
+
+        let asset_metadata = fungible_asset::metadata_from_asset(&fa);
+
+        let admin_controlled_ecosystem_reserve_data =
+            borrow_global_mut<AdminControlledEcosystemReserveData>(
+                admin_controlled_ecosystem_reserve_address()
+            );
+
+        let asset_object_constructor_ref =
+            object::create_object(admin_controlled_ecosystem_reserve_address());
+        let collector_fungible_store =
+            fungible_asset::create_store(&asset_object_constructor_ref, asset_metadata);
+
+        fungible_asset::deposit(collector_fungible_store, fa);
+
+        smart_table::upsert(
+            &mut admin_controlled_ecosystem_reserve_data.fungible_assets,
+            asset_metadata,
+            collector_fungible_store
+        );
+
+        transfer_out(acl_fund_admin, metadata, user_address, 50);
+
+        set_funds_admin_internal(aave_role_super_admin, user_address);
     }
 }

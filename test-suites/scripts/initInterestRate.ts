@@ -1,22 +1,30 @@
 /* eslint-disable no-console */
 /* eslint-disable no-await-in-loop */
-import { BigNumber } from "ethers";
-import { PoolManager, rateStrategyStableTwo } from "../configs/pool";
+import { BigNumber } from "@ethersproject/bignumber";
+import { RateManager, rateStrategyStableTwo } from "../configs/rates";
 import { AptosProvider } from "../wrappers/aptosProvider";
-import { PoolClient } from "../clients/poolClient";
 import { underlyingTokens } from "./createTokens";
+import { AclManager } from "../configs/aclManage";
+import chalk from "chalk";
+import { DefaultInterestRateStrategyClient } from "../clients/defaultInterestRateStrategyClient";
+import { AclClient } from "../clients/aclClient";
 
-// eslint-disable-next-line import/no-commonjs
-const chalk = require("chalk");
-
-export async function initInteresRates() {
+export async function initDefaultInteresRates() {
   // global aptos provider
-  const aptosProvider = new AptosProvider();
-  const poolClient = new PoolClient(aptosProvider, PoolManager);
+  const aptosProvider = AptosProvider.fromEnvs();
+  const defaultInterestRateStrategyClient = new DefaultInterestRateStrategyClient(aptosProvider, RateManager);
+  const aclClient = new AclClient(aptosProvider, AclManager);
+  const isRiskAdmin = await aclClient.isRiskAdmin(RateManager.accountAddress);
+  if (!isRiskAdmin) {
+    console.log(`Setting ${RateManager.accountAddress.toString()} to be asset risk and pool admin`);
+    await aclClient.addRiskAdmin(RateManager.accountAddress);
+    await aclClient.addPoolAdmin(RateManager.accountAddress);
+  }
+  console.log(`${RateManager.accountAddress.toString()} set to be risk and pool admin`);
 
   // set interest rate strategy fr each reserve
   for (const [, underlyingToken] of underlyingTokens.entries()) {
-    const txReceipt = await poolClient.setReserveInterestRateStrategy(
+    const txReceipt = await defaultInterestRateStrategyClient.setReserveInterestRateStrategy(
       underlyingToken.accountAddress,
       BigNumber.from(rateStrategyStableTwo.optimalUsageRatio),
       BigNumber.from(rateStrategyStableTwo.baseVariableBorrowRate),

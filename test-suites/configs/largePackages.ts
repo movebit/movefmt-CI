@@ -1,15 +1,10 @@
 import { Account, MoveFunctionId } from "@aptos-labs/ts-sdk";
-import path from "path";
-import dotenv from "dotenv";
 import { AptosProvider } from "../wrappers/aptosProvider";
 
-const envPath = path.resolve(__dirname, "../../.env");
-dotenv.config({ path: envPath });
-
 // Resources Admin Account
-const aptosProvider = new AptosProvider();
+const aptosProvider = AptosProvider.fromEnvs();
 export const LargePackagesManager = Account.fromPrivateKey({
-  privateKey: aptosProvider.getProfilePrivateKeyByName("aave_large_packages"),
+  privateKey: aptosProvider.getProfileAccountPrivateKeyByName("aave_large_packages"),
 });
 export const LargePackagesAccountAddress = LargePackagesManager.accountAddress.toString();
 

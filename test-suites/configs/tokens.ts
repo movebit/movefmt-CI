@@ -1,37 +1,32 @@
 import { Account, AccountAddress, MoveFunctionId } from "@aptos-labs/ts-sdk";
-import path from "path";
-import dotenv from "dotenv";
 import { View } from "../helpers/helper";
 import { aptos } from "./common";
 import { AptosProvider } from "../wrappers/aptosProvider";
 
-const envPath = path.resolve(__dirname, "../../.env");
-dotenv.config({ path: envPath });
-
 // Resources Admin Account
 
 // Underlying Token
-const aptosProvider = new AptosProvider();
+const aptosProvider = AptosProvider.fromEnvs();
 
 export const AaveTokensManager = Account.fromPrivateKey({
-  privateKey: aptosProvider.getProfilePrivateKeyByName("aave_pool"),
+  privateKey: aptosProvider.getProfileAccountPrivateKeyByName("aave_pool"),
 });
 export const AaveTokensManagerAccountAddress = AaveTokensManager.accountAddress.toString();
 
 export const UnderlyingManager = Account.fromPrivateKey({
-  privateKey: aptosProvider.getProfilePrivateKeyByName("underlying_tokens"),
+  privateKey: aptosProvider.getProfileAccountPrivateKeyByName("underlying_tokens"),
 });
 export const UnderlyingManagerAccountAddress = UnderlyingManager.accountAddress.toString();
 
 // A Token
 export const ATokenManager = Account.fromPrivateKey({
-  privateKey: aptosProvider.getProfilePrivateKeyByName("a_tokens"),
+  privateKey: aptosProvider.getProfileAccountPrivateKeyByName("a_tokens"),
 });
 export const ATokenManagerAccountAddress = ATokenManager.accountAddress.toString();
 
 // Variable Token
 export const VariableManager = Account.fromPrivateKey({
-  privateKey: aptosProvider.getProfilePrivateKeyByName("variable_tokens"),
+  privateKey: aptosProvider.getProfileAccountPrivateKeyByName("variable_tokens"),
 });
 export const VariableManagerAccountAddress = VariableManager.accountAddress.toString();
 
@@ -51,7 +46,7 @@ export const UnderlyingTokenAddressFuncAddr: MoveFunctionId = `${AaveTokensManag
 
 // A Token
 export const ATokenCreateTokenFuncAddr: MoveFunctionId = `${AaveTokensManagerAccountAddress}::a_token_factory::create_token`;
-export const ATokenGetMetadataBySymbolFuncAddr: MoveFunctionId = `${AaveTokensManagerAccountAddress}::a_token_factory::get_metadata_by_symbol`;
+export const ATokenGetMetadataBySymbolFuncAddr: MoveFunctionId = `${AaveTokensManagerAccountAddress}::a_token_factory::asset_metadata`;
 export const ATokenGetTokenAccountAddressFuncAddr: MoveFunctionId = `${AaveTokensManagerAccountAddress}::a_token_factory::get_token_account_address`;
 export const ATokenGetReserveTreasuryAddressFuncAddr: MoveFunctionId = `${AaveTokensManagerAccountAddress}::a_token_factory::get_reserve_treasury_address`;
 export const ATokenGetUnderlyingAssetAddressFuncAddr: MoveFunctionId = `${AaveTokensManagerAccountAddress}::a_token_factory::get_underlying_asset_address`;
@@ -69,7 +64,7 @@ export const ATokenAssetMetadataFuncAddr: MoveFunctionId = `${AaveTokensManagerA
 
 // Variable Token
 export const VariableCreateTokenFuncAddr: MoveFunctionId = `${AaveTokensManagerAccountAddress}::variable_debt_token_factory::create_token`;
-export const VariableGetMetadataBySymbolFuncAddr: MoveFunctionId = `${AaveTokensManagerAccountAddress}::variable_debt_token_factory::get_metadata_by_symbol`;
+export const VariableGetMetadataBySymbolFuncAddr: MoveFunctionId = `${AaveTokensManagerAccountAddress}::variable_debt_token_factory::asset_metadata`;
 export const VariableGetTokenAddressFuncAddr: MoveFunctionId = `${AaveTokensManagerAccountAddress}::variable_debt_token_factory::token_address`;
 export const VariableGetAssetMetadataFuncAddr: MoveFunctionId = `${AaveTokensManagerAccountAddress}::variable_debt_token_factory::asset_metadata`;
 export const VariableGetUnderlyingAddressFuncAddr: MoveFunctionId = `${AaveTokensManagerAccountAddress}::variable_debt_token_factory::get_underlying_asset_address`;

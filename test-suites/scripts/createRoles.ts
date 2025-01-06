@@ -1,16 +1,13 @@
 /* eslint-disable no-console */
 import { ATokenManager, UnderlyingManager, VariableManager } from "../configs/tokens";
 import { AclClient } from "../clients/aclClient";
-
 import { AclManager } from "../configs/aclManage";
 import { PoolManager } from "../configs/pool";
 import { AptosProvider } from "../wrappers/aptosProvider";
-
-// eslint-disable-next-line import/no-commonjs
-const chalk = require("chalk");
+import chalk from "chalk";
 
 export async function createRoles() {
-  const aptosProvider = new AptosProvider();
+  const aptosProvider = AptosProvider.fromEnvs();
   const aclClient = new AclClient(aptosProvider, AclManager);
 
   // acl manager grants itself a default admin role

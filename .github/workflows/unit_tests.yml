@@ -3,22 +3,21 @@ name: Unit Tests
 on:
   pull_request:
   merge_group:
-    branches: [main]
+    branches:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
   GITHUB_ACTIONS: true
   APTOS_NETWORK: local
+  UPGRADE_CONTRACTS: false
   ARTIFACTS_LEVEL: all
-  PYTH_HERMES_URL: https://hermes-beta.pyth.network
-  PYTH_CONTRACT_ACCOUNT: 0x0
-  PYTH_DEPLOYER_ACCOUNT: 0x0
-  PYTH_WORMHOLE: 0x0
+  DEFAULT_FUND_AMOUNT: 40000000
 
 jobs:
   unit-tests:
     name: Run Aptos Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: Larger-Github-Runners
     timeout-minutes: 60
     env:
       DEFAULT_FUNDER_PRIVATE_KEY: ${{ secrets.GH_DEFAULT_FUNDER_PRIVATE_KEY }}
@@ -54,3 +53,8 @@ jobs:
 
       - name: Run Aptos Test All Contracts
         run: make test-all
+
+      - name: Terminate Aptos Local Testnet
+        if: always()
+        run: |-
+          kill $(cat aptos_serve_pid.txt) || true

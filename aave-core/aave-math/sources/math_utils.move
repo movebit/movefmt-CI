@@ -1,6 +1,8 @@
 module aave_math::math_utils {
     use aptos_framework::timestamp;
 
+    use aave_config::error_config;
+
     use aave_math::wad_ray_math;
 
     const U256_MAX: u256 =
@@ -14,12 +16,6 @@ module aave_math::math_utils {
 
     /// Half percentage factor (50.00%)
     const HALF_PERCENTAGE_FACTOR: u256 = 5 * 1000;
-
-    /// Calculation results in overflow
-    const EOVERFLOW: u64 = 1;
-
-    /// Cannot divide by zero
-    const EDIVISION_BY_ZERO: u64 = 2;
 
     public fun u256_max(): u256 {
         U256_MAX
@@ -81,7 +77,8 @@ module aave_math::math_utils {
         let second_term = (exp * exp_minus_one * base_power_two) / 2;
         let third_term = (exp * exp_minus_one * exp_minus_two * base_power_three) / 6;
 
-        wad_ray_math::ray() + (rate * exp) / SECONDS_PER_YEAR + second_term + third_term
+        wad_ray_math::ray() + (rate * exp) / SECONDS_PER_YEAR + second_term
+            + third_term
     }
 
     /// @dev Calculates the compounded interest between the timestamp of the last update and the current block timestamp
@@ -113,7 +110,10 @@ module aave_math::math_utils {
         if (value == 0 || percentage == 0) {
             return 0
         };
-        assert!(value <= (U256_MAX - HALF_PERCENTAGE_FACTOR) / percentage, EOVERFLOW);
+        assert!(
+            value <= (U256_MAX - HALF_PERCENTAGE_FACTOR) / percentage,
+            error_config::get_eoverflow()
+        );
         (value * percentage + HALF_PERCENTAGE_FACTOR) / PERCENTAGE_FACTOR
     }
 
@@ -122,10 +122,10 @@ module aave_math::math_utils {
     /// @param percentage The percentage of the value to be calculated
     /// @return result value percentdiv percentage
     public fun percent_div(value: u256, percentage: u256): u256 {
-        assert!(percentage > 0, EDIVISION_BY_ZERO);
+        assert!(percentage > 0, error_config::get_edivision_by_zero());
         assert!(
             value <= (U256_MAX - HALF_PERCENTAGE_FACTOR) / PERCENTAGE_FACTOR,
-            EOVERFLOW,
+            error_config::get_eoverflow()
         );
         (value * PERCENTAGE_FACTOR + percentage / 2) / percentage
     }

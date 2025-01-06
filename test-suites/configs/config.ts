@@ -1,13 +1,9 @@
 import { Account, AccountAddress, Ed25519Account } from "@aptos-labs/ts-sdk";
-import path from "path";
-import dotenv from "dotenv";
 import { AAAVE, AAVE, ADAI, AUSDC, AWETH, DAI, USDC, VDAI, WETH } from "./tokens";
 import { AclManager } from "./aclManage";
 import { AptosProvider } from "../wrappers/aptosProvider";
 import { aTokens, underlyingTokens, varTokens } from "../scripts/createTokens";
 import { AclClient } from "../clients/aclClient";
-
-dotenv.config();
 
 interface TestEnv {
   emergencyAdmin: Ed25519Account;
@@ -38,30 +34,39 @@ export const testEnv: TestEnv = {
   aave: AccountAddress.ZERO,
 } as TestEnv;
 
-const envPath = path.resolve(__dirname, "../../.env");
-dotenv.config({ path: envPath });
-
-const aptosProvider = new AptosProvider();
+const aptosProvider = AptosProvider.fromEnvs();
 
 export async function getTestAccounts(): Promise<Ed25519Account[]> {
   // 1. create accounts
   const accounts: Ed25519Account[] = [];
-  const manager0 = Account.fromPrivateKey({ privateKey: aptosProvider.getProfilePrivateKeyByName("test_account_0") });
+  const manager0 = Account.fromPrivateKey({
+    privateKey: aptosProvider.getProfileAccountPrivateKeyByName("test_account_0"),
+  });
   accounts.push(manager0);
 
-  const manager1 = Account.fromPrivateKey({ privateKey: aptosProvider.getProfilePrivateKeyByName("test_account_1") });
+  const manager1 = Account.fromPrivateKey({
+    privateKey: aptosProvider.getProfileAccountPrivateKeyByName("test_account_1"),
+  });
   accounts.push(manager1);
 
-  const manager2 = Account.fromPrivateKey({ privateKey: aptosProvider.getProfilePrivateKeyByName("test_account_2") });
+  const manager2 = Account.fromPrivateKey({
+    privateKey: aptosProvider.getProfileAccountPrivateKeyByName("test_account_2"),
+  });
   accounts.push(manager2);
 
-  const manager3 = Account.fromPrivateKey({ privateKey: aptosProvider.getProfilePrivateKeyByName("test_account_3") });
+  const manager3 = Account.fromPrivateKey({
+    privateKey: aptosProvider.getProfileAccountPrivateKeyByName("test_account_3"),
+  });
   accounts.push(manager3);
 
-  const manager4 = Account.fromPrivateKey({ privateKey: aptosProvider.getProfilePrivateKeyByName("test_account_4") });
+  const manager4 = Account.fromPrivateKey({
+    privateKey: aptosProvider.getProfileAccountPrivateKeyByName("test_account_4"),
+  });
   accounts.push(manager4);
 
-  const manager5 = Account.fromPrivateKey({ privateKey: aptosProvider.getProfilePrivateKeyByName("test_account_5") });
+  const manager5 = Account.fromPrivateKey({
+    privateKey: aptosProvider.getProfileAccountPrivateKeyByName("test_account_5"),
+  });
   accounts.push(manager5);
   return accounts;
 }

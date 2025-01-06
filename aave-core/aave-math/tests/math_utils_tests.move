@@ -1,27 +1,27 @@
 #[test_only]
 module aave_math::math_utils_tests {
-    use aptos_framework::timestamp::{
-        set_time_has_started_for_testing,
-        fast_forward_seconds
-    };
-    use aave_math::wad_ray_math::ray;
     use aptos_framework::timestamp;
+    use aptos_framework::timestamp::{
+        fast_forward_seconds,
+        set_time_has_started_for_testing
+    };
+    use aave_config::error_config::{EOVERFLOW, EDIVISION_BY_ZERO};
     use aave_math::math_utils::{
-        pow,
-        percent_mul,
-        u256_max,
         calculate_compounded_interest_now,
         calculate_linear_interest,
-        get_percentage_factor,
-        percent_div,
         get_half_percentage_factor_for_testing,
-        get_u256_max_for_testing,
-        get_seconds_per_year_for_testing,
+        get_percentage_factor,
         get_percentage_factor_for_testing,
+        get_seconds_per_year_for_testing,
+        get_u256_max_for_testing,
+        percent_div,
+        percent_mul,
+        pow,
+        u256_max
     };
+    use aave_math::wad_ray_math::ray;
 
     const TEST_SUCCESS: u64 = 1;
-    const TEST_FAILED: u64 = 2;
 
     #[test]
     fun test_power() {
@@ -38,7 +38,8 @@ module aave_math::math_utils_tests {
     #[test]
     fun test_getters() {
         assert!(
-            get_percentage_factor() == get_percentage_factor_for_testing(), TEST_SUCCESS
+            get_percentage_factor() == get_percentage_factor_for_testing(),
+            TEST_SUCCESS
         );
         assert!(u256_max() == get_u256_max_for_testing(), TEST_SUCCESS);
     }
@@ -97,7 +98,7 @@ module aave_math::math_utils_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = 1, location = aave_math::math_utils)]
+    #[expected_failure(abort_code = EOVERFLOW, location = aave_math::math_utils)]
     fun test_percent_mul_overflow() {
         let percentage = get_percentage_factor_for_testing() / 5;
         let value =
@@ -112,13 +113,14 @@ module aave_math::math_utils_tests {
         let percentage = get_percentage_factor_for_testing() / 5;
         let percentage_of_value = percent_div(value, percentage);
         assert!(
-            percentage_of_value == value * get_percentage_factor_for_testing() / percentage,
-            TEST_SUCCESS,
+            percentage_of_value
+                == value * get_percentage_factor_for_testing() / percentage,
+            TEST_SUCCESS
         );
     }
 
     #[test]
-    #[expected_failure(abort_code = 1, location = aave_math::math_utils)]
+    #[expected_failure(abort_code = EOVERFLOW, location = aave_math::math_utils)]
     fun test_percent_div_overflow() {
         let percentage = get_percentage_factor_for_testing() / 5;
         let value =
@@ -128,7 +130,7 @@ module aave_math::math_utils_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = 2, location = aave_math::math_utils)]
+    #[expected_failure(abort_code = EDIVISION_BY_ZERO, location = aave_math::math_utils)]
     fun test_percent_div_by_zero() {
         percent_div(50, 0);
     }

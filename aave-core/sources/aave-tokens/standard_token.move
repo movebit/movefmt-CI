@@ -40,7 +40,7 @@ module aave_pool::standard_token {
     struct ManagingRefs has key {
         mint_ref: Option<MintRef>,
         transfer_ref: Option<TransferRef>,
-        burn_ref: Option<BurnRef>,
+        burn_ref: Option<BurnRef>
     }
 
     #[event]
@@ -52,7 +52,7 @@ module aave_pool::standard_token {
         icon_uri: String,
         project_uri: String,
         underlying_asset_address: address,
-        is_coin_underlying: bool,
+        is_coin_underlying: bool
     }
 
     /// Initialize metadata object and store the refs specified by `ref_flags`.
@@ -66,12 +66,12 @@ module aave_pool::standard_token {
         project_uri: String,
         ref_flags: vector<bool>,
         underlying_asset_address: address,
-        is_coin_underlying: bool,
+        is_coin_underlying: bool
     ) {
         only_token_admin(creator);
         assert!(
             vector::length(&ref_flags) == 3,
-            error::invalid_argument(ERR_INVALID_REF_FLAGS_LENGTH),
+            error::invalid_argument(ERR_INVALID_REF_FLAGS_LENGTH)
         );
         let supply =
             if (maximum_supply != 0) {
@@ -89,7 +89,7 @@ module aave_pool::standard_token {
             symbol,
             decimals,
             icon_uri,
-            project_uri,
+            project_uri
         );
 
         // Optionally create mint/burn/transfer refs to allow creator to manage the fungible asset.
@@ -116,7 +116,7 @@ module aave_pool::standard_token {
         // save the managing refs
         move_to(
             &metadata_object_signer,
-            ManagingRefs { mint_ref, transfer_ref, burn_ref },
+            ManagingRefs { mint_ref, transfer_ref, burn_ref }
         );
 
         event::emit(
@@ -128,8 +128,8 @@ module aave_pool::standard_token {
                 icon_uri,
                 project_uri,
                 underlying_asset_address,
-                is_coin_underlying,
-            },
+                is_coin_underlying
+            }
         )
     }
 
@@ -141,7 +141,10 @@ module aave_pool::standard_token {
 
     /// Mint as the owner of metadata object to the primary fungible stores of the accounts with amounts of FAs.
     public entry fun mint_to_primary_stores(
-        admin: &signer, asset: Object<Metadata>, to: vector<address>, amounts: vector<u64>
+        admin: &signer,
+        asset: Object<Metadata>,
+        to: vector<address>,
+        amounts: vector<u64>
     ) acquires ManagingRefs {
         let receiver_primary_stores = vector::map(
             to, |addr| primary_fungible_store::ensure_primary_store_exists(addr, asset)
@@ -154,19 +157,19 @@ module aave_pool::standard_token {
         admin: &signer,
         asset: Object<Metadata>,
         stores: vector<Object<FungibleStore>>,
-        amounts: vector<u64>,
+        amounts: vector<u64>
     ) acquires ManagingRefs {
         let length = vector::length(&stores);
         assert!(
             length == vector::length(&amounts),
-            error::invalid_argument(ERR_VECTORS_LENGTH_MISMATCH),
+            error::invalid_argument(ERR_VECTORS_LENGTH_MISMATCH)
         );
         let mint_ref = authorized_borrow_mint_ref(admin, asset);
         for (i in 0..length) {
             fungible_asset::mint_to(
                 mint_ref,
                 *vector::borrow(&stores, i),
-                *vector::borrow(&amounts, i),
+                *vector::borrow(&amounts, i)
             );
         }
     }
@@ -191,7 +194,7 @@ module aave_pool::standard_token {
             asset,
             sender_primary_stores,
             receiver_primary_stores,
-            amounts,
+            amounts
         );
     }
 
@@ -201,16 +204,16 @@ module aave_pool::standard_token {
         asset: Object<Metadata>,
         sender_stores: vector<Object<FungibleStore>>,
         receiver_stores: vector<Object<FungibleStore>>,
-        amounts: vector<u64>,
+        amounts: vector<u64>
     ) acquires ManagingRefs {
         let length = vector::length(&sender_stores);
         assert!(
             length == vector::length(&receiver_stores),
-            error::invalid_argument(ERR_VECTORS_LENGTH_MISMATCH),
+            error::invalid_argument(ERR_VECTORS_LENGTH_MISMATCH)
         );
         assert!(
             length == vector::length(&amounts),
-            error::invalid_argument(ERR_VECTORS_LENGTH_MISMATCH),
+            error::invalid_argument(ERR_VECTORS_LENGTH_MISMATCH)
         );
         let transfer_ref = authorized_borrow_transfer_ref(admin, asset);
         for (i in 0..length) {
@@ -218,7 +221,7 @@ module aave_pool::standard_token {
                 transfer_ref,
                 *vector::borrow(&sender_stores, i),
                 *vector::borrow(&receiver_stores, i),
-                *vector::borrow(&amounts, i),
+                *vector::borrow(&amounts, i)
             );
         }
     }
@@ -246,25 +249,28 @@ module aave_pool::standard_token {
         let length = vector::length(&stores);
         assert!(
             length == vector::length(&amounts),
-            error::invalid_argument(ERR_VECTORS_LENGTH_MISMATCH),
+            error::invalid_argument(ERR_VECTORS_LENGTH_MISMATCH)
         );
         let burn_ref = authorized_borrow_burn_ref(admin, asset);
         for (i in 0..length) {
             fungible_asset::burn_from(
                 burn_ref,
                 *vector::borrow(&stores, i),
-                *vector::borrow(&amounts, i),
+                *vector::borrow(&amounts, i)
             );
         };
     }
 
     /// Freeze/unfreeze the primary stores of accounts so they cannot transfer or receive fungible assets.
     public entry fun set_primary_stores_frozen_status(
-        admin: &signer, asset: Object<Metadata>, accounts: vector<address>, frozen: bool
+        admin: &signer,
+        asset: Object<Metadata>,
+        accounts: vector<address>,
+        frozen: bool
     ) acquires ManagingRefs {
         let primary_stores = vector::map(
             accounts,
-            |acct| { primary_fungible_store::ensure_primary_store_exists(acct, asset) },
+            |acct| { primary_fungible_store::ensure_primary_store_exists(acct, asset) }
         );
         set_frozen_status(admin, asset, primary_stores, frozen);
     }
@@ -281,7 +287,7 @@ module aave_pool::standard_token {
             stores,
             |store| {
                 fungible_asset::set_frozen_flag(transfer_ref, store, frozen);
-            },
+            }
         );
     }
 
@@ -309,7 +315,7 @@ module aave_pool::standard_token {
         let length = vector::length(&stores);
         assert!(
             length == vector::length(&amounts),
-            error::invalid_argument(ERR_VECTORS_LENGTH_MISMATCH),
+            error::invalid_argument(ERR_VECTORS_LENGTH_MISMATCH)
         );
         let transfer_ref = authorized_borrow_transfer_ref(admin, asset);
         let sum = fungible_asset::zero(asset);
@@ -318,7 +324,7 @@ module aave_pool::standard_token {
                 fungible_asset::withdraw_with_ref(
                     transfer_ref,
                     *vector::borrow(&stores, i),
-                    *vector::borrow(&amounts, i),
+                    *vector::borrow(&amounts, i)
                 );
             fungible_asset::merge(&mut sum, fa);
         };
@@ -331,13 +337,13 @@ module aave_pool::standard_token {
         admin: &signer,
         fa: &mut FungibleAsset,
         from: vector<address>,
-        amounts: vector<u64>,
+        amounts: vector<u64>
     ) acquires ManagingRefs {
         let primary_stores = vector::map(
             from,
             |addr| primary_fungible_store::ensure_primary_store_exists(
                 addr, fungible_asset::asset_metadata(fa)
-            ),
+            )
         );
         deposit(admin, fa, primary_stores, amounts);
     }
@@ -353,7 +359,7 @@ module aave_pool::standard_token {
         let length = vector::length(&stores);
         assert!(
             length == vector::length(&amounts),
-            error::invalid_argument(ERR_VECTORS_LENGTH_MISMATCH),
+            error::invalid_argument(ERR_VECTORS_LENGTH_MISMATCH)
         );
         let transfer_ref =
             authorized_borrow_transfer_ref(admin, fungible_asset::asset_metadata(fa));
@@ -362,7 +368,7 @@ module aave_pool::standard_token {
             fungible_asset::deposit_with_ref(
                 transfer_ref,
                 *vector::borrow(&stores, i),
-                split_fa,
+                split_fa
             );
         };
     }
@@ -370,18 +376,18 @@ module aave_pool::standard_token {
     /// Borrow the immutable reference of the refs of `metadata`.
     /// This validates that the signer is the metadata object's owner.
     inline fun authorized_borrow_refs(
-        owner: &signer, asset: Object<Metadata>,
+        owner: &signer, asset: Object<Metadata>
     ): &ManagingRefs acquires ManagingRefs {
         assert!(
             object::is_owner(asset, signer::address_of(owner)),
-            error::permission_denied(ERR_NOT_OWNER),
+            error::permission_denied(ERR_NOT_OWNER)
         );
         borrow_global<ManagingRefs>(object::object_address(&asset))
     }
 
     /// Check the existence and borrow `MintRef`.
     inline fun authorized_borrow_mint_ref(
-        owner: &signer, asset: Object<Metadata>,
+        owner: &signer, asset: Object<Metadata>
     ): &MintRef acquires ManagingRefs {
         let refs = authorized_borrow_refs(owner, asset);
         assert!(option::is_some(&refs.mint_ref), error::not_found(ERR_MINT_REF));
@@ -390,16 +396,18 @@ module aave_pool::standard_token {
 
     /// Check the existence and borrow `TransferRef`.
     inline fun authorized_borrow_transfer_ref(
-        owner: &signer, asset: Object<Metadata>,
+        owner: &signer, asset: Object<Metadata>
     ): &TransferRef acquires ManagingRefs {
         let refs = authorized_borrow_refs(owner, asset);
-        assert!(option::is_some(&refs.transfer_ref), error::not_found(ERR_TRANSFER_REF));
+        assert!(
+            option::is_some(&refs.transfer_ref), error::not_found(ERR_TRANSFER_REF)
+        );
         option::borrow(&refs.transfer_ref)
     }
 
     /// Check the existence and borrow `BurnRef`.
     inline fun authorized_borrow_burn_ref(
-        owner: &signer, asset: Object<Metadata>,
+        owner: &signer, asset: Object<Metadata>
     ): &BurnRef acquires ManagingRefs {
         let refs = authorized_borrow_refs(owner, asset);
         assert!(option::is_some(&refs.mint_ref), error::not_found(ERR_BURN_REF));

@@ -1,14 +1,11 @@
 import { Account, MoveFunctionId } from "@aptos-labs/ts-sdk";
-import path from "path";
-import dotenv from "dotenv";
 import { AptosProvider } from "../wrappers/aptosProvider";
 
-const envPath = path.resolve(__dirname, "../../.env");
-dotenv.config({ path: envPath });
-
 // Resources Admin Account
-const aptosProvider = new AptosProvider();
-export const AclManager = Account.fromPrivateKey({ privateKey: aptosProvider.getProfilePrivateKeyByName("aave_acl") });
+const aptosProvider = AptosProvider.fromEnvs();
+export const AclManager = Account.fromPrivateKey({
+  privateKey: aptosProvider.getProfileAccountPrivateKeyByName("aave_acl"),
+});
 export const AclManagerAccountAddress = AclManager.accountAddress.toString();
 
 // Resource Func Addr

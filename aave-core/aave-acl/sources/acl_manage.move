@@ -34,7 +34,9 @@ module aave_acl::acl_manage {
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_framework::event;
 
-    const DEFAULT_ADMIN_ROLE: vector<u8> = b"DEFAULT_ADMIN";
+    use aave_config::error_config;
+
+    const DEFAULT_ADMIN_ROLE: vector<u8> = b"";
     const POOL_ADMIN_ROLE: vector<u8> = b"POOL_ADMIN";
     const EMERGENCY_ADMIN_ROLE: vector<u8> = b"EMERGENCY_ADMIN";
     const RISK_ADMIN_ROLE: vector<u8> = b"RISK_ADMIN";
@@ -46,17 +48,8 @@ module aave_acl::acl_manage {
     const ADMIN_CONTROLLED_ECOSYSTEM_RESERVE_FUNDS_ADMIN_ROLE: vector<u8> = b"ADMIN_CONTROLLED_ECOSYSTEM_RESERVE_FUNDS_ADMIN";
     const REWARDS_CONTROLLER_ADMIN_ROLE: vector<u8> = b"REWARDS_CONTROLLER_ADMIN_ROLE";
 
-    // You are not an administrator and cannot initialize resources.
-    const ENOT_MANAGEMENT: u64 = 1;
-    // Role does not exist.
-    const EROLE_NOT_EXISTS: u64 = 2;
-    // The role must be admin
-    const EROLE_NOT_ADMIN: u64 = 3;
-    // can only renounce roles for self
-    const EROLE_CAN_ONLY_RENOUNCE_SELF: u64 = 4;
-
     #[event]
-    /// @dev Emitted when `newAdminRole` is set as ``role``'s admin role, replacing `previousAdminRole`
+    /// @dev Emitted when `new_admin_role` is set as ``role``'s admin role, replacing `previous_admin_role`
     ///
     /// `DEFAULT_ADMIN_ROLE` is the starting admin for all roles, despite
     /// {RoleAdminChanged} not being emitted signaling this.
@@ -98,15 +91,20 @@ module aave_acl::acl_manage {
     }
 
     #[test_only]
-    public fun test_init_module(user: &signer) acquires Roles {
-        init_module(user);
-        grant_default_admin_role(user);
+    public fun test_init_module(admin: &signer) acquires Roles {
+        init_module(admin);
+        grant_default_admin_role(admin);
     }
 
     fun init_module(admin: &signer) {
         let admin_address = signer::address_of(admin);
         check_super_admin(admin_address);
-        move_to(admin, Roles { acl_instance: smart_table::new<String, RoleData>() });
+        move_to(
+            admin,
+            Roles {
+                acl_instance: smart_table::new<String, RoleData>()
+            }
+        );
     }
 
     public entry fun grant_default_admin_role(admin: &signer) acquires Roles {
@@ -116,11 +114,11 @@ module aave_acl::acl_manage {
     }
 
     fun check_super_admin(admin: address) {
-        assert!(admin == @aave_acl, ENOT_MANAGEMENT);
+        assert!(admin == @aave_acl, error_config::get_enot_acl_owner());
     }
 
     fun only_role(role: String, user: address) acquires Roles {
-        assert!(has_role(role, user), EROLE_NOT_ADMIN);
+        assert!(has_role(role, user), error_config::get_erole_missmatch());
     }
 
     #[view]
@@ -133,25 +131,30 @@ module aave_acl::acl_manage {
     public fun get_role_admin(role: String): String acquires Roles {
         let roles = borrow_global<Roles>(@aave_acl);
         if (!smart_table::contains(&roles.acl_instance, role)) {
-            return string::utf8(DEFAULT_ADMIN_ROLE)
+            return string::utf8(b"")
         };
 
         smart_table::borrow(&roles.acl_instance, role).admin_role
     }
 
-    /// @dev Sets `adminRole` as ``role``'s admin role.
+    /// @dev Sets `admin_role` as ``role``'s admin role.
     /// Emits a {RoleAdminChanged} event.
     public entry fun set_role_admin(
         admin: &signer, role: String, admin_role: String
     ) acquires Roles {
         only_role(default_admin_role(), signer::address_of(admin));
+
         let previous_admin_role = get_role_admin(role);
+        let roles = borrow_global_mut<Roles>(@aave_acl);
 
-        let role_res = borrow_global_mut<Roles>(@aave_acl);
-        assert!(smart_table::contains(&mut role_res.acl_instance, role), EROLE_NOT_EXISTS);
-
-        let role_data = smart_table::borrow_mut(&mut role_res.acl_instance, role);
-        role_data.admin_role = admin_role;
+        if (!smart_table::contains(&mut roles.acl_instance, role)) {
+            let members = smart_table::new<address, bool>();
+            let role_data = RoleData { members, admin_role };
+            smart_table::add(&mut roles.acl_instance, role, role_data);
+        } else {
+            let role_data = smart_table::borrow_mut(&mut roles.acl_instance, role);
+            role_data.admin_role = admin_role;
+        };
 
         event::emit(
             RoleAdminChanged { role, previous_admin_role, new_admin_role: admin_role }
@@ -159,7 +162,9 @@ module aave_acl::acl_manage {
     }
 
     #[view]
-    /// @dev Returns `true` if `account` has been granted `role`.
+    /// @dev Returns `true` if `user` has been granted `role`.
+    /// @param role The role identifier
+    /// @param user The account to check
     public fun has_role(role: String, user: address): bool acquires Roles {
         let role_res = borrow_global<Roles>(@aave_acl);
         if (!smart_table::contains(&role_res.acl_instance, role)) {
@@ -195,7 +200,7 @@ module aave_acl::acl_manage {
             if (!smart_table::contains(&role_res.acl_instance, role)) {
                 let members = smart_table::new<address, bool>();
                 smart_table::add(&mut members, user, true);
-                let role_data = RoleData { members, admin_role: default_admin_role() };
+                let role_data = RoleData { members, admin_role: string::utf8(b"") };
                 smart_table::add(&mut role_res.acl_instance, role, role_data);
             } else {
                 let role_data = smart_table::borrow_mut(&mut role_res.acl_instance, role);
@@ -222,7 +227,10 @@ module aave_acl::acl_manage {
     public entry fun renounce_role(
         admin: &signer, role: String, user: address
     ) acquires Roles {
-        assert!(signer::address_of(admin) == user, EROLE_CAN_ONLY_RENOUNCE_SELF);
+        assert!(
+            signer::address_of(admin) == user,
+            error_config::get_erole_can_only_renounce_self()
+        );
         revoke_role_internal(admin, role, user);
     }
 
@@ -349,28 +357,28 @@ module aave_acl::acl_manage {
         has_role(get_funds_admin_role(), admin)
     }
 
-    public entry fun add_emission_admin_role(admin: &signer, user: address) acquires Roles {
+    public entry fun add_emission_admin(admin: &signer, user: address) acquires Roles {
         grant_role(admin, get_emission_admin_role(), user);
     }
 
-    public entry fun remove_emission_admin_role(
-        admin: &signer, user: address
-    ) acquires Roles {
+    public entry fun remove_emission_admin(admin: &signer, user: address) acquires Roles {
         revoke_role(admin, get_emission_admin_role(), user);
     }
 
     #[view]
-    public fun is_emission_admin_role(admin: address): bool acquires Roles {
+    public fun is_emission_admin(admin: address): bool acquires Roles {
         has_role(get_emission_admin_role(), admin)
     }
 
-    public entry fun add_admin_controlled_ecosystem_reserve_funds_admin_role(
+    public entry fun add_admin_controlled_ecosystem_reserve_funds_admin(
         admin: &signer, user: address
     ) acquires Roles {
-        grant_role(admin, get_admin_controlled_ecosystem_reserve_funds_admin_role(), user);
+        grant_role(
+            admin, get_admin_controlled_ecosystem_reserve_funds_admin_role(), user
+        );
     }
 
-    public entry fun remove_admin_controlled_ecosystem_reserve_funds_admin_role(
+    public entry fun remove_admin_controlled_ecosystem_reserve_funds_admin(
         admin: &signer, user: address
     ) acquires Roles {
         revoke_role(
@@ -379,26 +387,26 @@ module aave_acl::acl_manage {
     }
 
     #[view]
-    public fun is_admin_controlled_ecosystem_reserve_funds_admin_role(
+    public fun is_admin_controlled_ecosystem_reserve_funds_admin(
         admin: address
     ): bool acquires Roles {
         has_role(get_admin_controlled_ecosystem_reserve_funds_admin_role(), admin)
     }
 
-    public entry fun add_rewards_controller_admin_role(
+    public entry fun add_rewards_controller_admin(
         admin: &signer, user: address
     ) acquires Roles {
         grant_role(admin, get_rewards_controller_admin_role(), user);
     }
 
-    public entry fun remove_rewards_controller_admin_role(
+    public entry fun remove_rewards_controller_admin(
         admin: &signer, user: address
     ) acquires Roles {
         revoke_role(admin, get_rewards_controller_admin_role(), user);
     }
 
     #[view]
-    public fun is_rewards_controller_admin_role(admin: address): bool acquires Roles {
+    public fun is_rewards_controller_admin(admin: address): bool acquires Roles {
         has_role(get_rewards_controller_admin_role(), admin)
     }
 

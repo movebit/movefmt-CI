@@ -14,6 +14,7 @@ AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir 
 AaveAcl = { local = "./aave-acl" }
 AaveConfig = { local = "./aave-config" }
 AaveMath = { local = "./aave-math" }
-AaveMockOracle = { local = "./aave-mock-oracle" }
+AaveOracle = { local = "aave-oracle" }
+AaveRate = { local = "./aave-rate" }
 
 [dev-dependencies]

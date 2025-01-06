@@ -1,15 +1,10 @@
 import { Account, MoveFunctionId } from "@aptos-labs/ts-sdk";
-import path from "path";
-import dotenv from "dotenv";
 import { AptosProvider } from "../wrappers/aptosProvider";
 
-const envPath = path.resolve(__dirname, "../../.env");
-dotenv.config({ path: envPath });
-
 // Resources Admin Account
-const aptosProvider = new AptosProvider();
+const aptosProvider = AptosProvider.fromEnvs();
 export const FlashLoanManager = Account.fromPrivateKey({
-  privateKey: aptosProvider.getProfilePrivateKeyByName("aave_pool"),
+  privateKey: aptosProvider.getProfileAccountPrivateKeyByName("aave_pool"),
 });
 export const FlashLoanManagerAccountAddress = FlashLoanManager.accountAddress.toString();
 

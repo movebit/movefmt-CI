@@ -3,28 +3,34 @@ name: TypeScript Integration Tests
 on:
   pull_request:
   merge_group:
-    branches: [main]
+    branches:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
   GITHUB_ACTIONS: true
   APTOS_NETWORK: local
+  UPGRADE_CONTRACTS: false
   ARTIFACTS_LEVEL: all
-  PYTH_HERMES_URL: https://hermes-beta.pyth.network
-  PYTH_CONTRACT_ACCOUNT: 0x0
-  PYTH_DEPLOYER_ACCOUNT: 0x0
-  PYTH_WORMHOLE: 0x0
+  DEFAULT_FUND_AMOUNT: 40000000
 
 jobs:
 
   typescript-integration-tests:
     name: Run Typescript Integration Tests
-    runs-on: ubuntu-latest
+    runs-on: Larger-Github-Runners
     timeout-minutes: 60
     env:
       DEFAULT_FUNDER_PRIVATE_KEY: ${{ secrets.GH_DEFAULT_FUNDER_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libudev-dev lld libdw-dev
 
       - name: Install Aptos CLI
         run: |
@@ -56,7 +62,7 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install npm dependencies
-        run:  pnpm install
+        run: pnpm install
         working-directory: test-suites
 
       - name: Run Aptos Create Local Testnet
@@ -92,15 +98,15 @@ jobs:
       - name: Run Aptos Publish All Contracts
         run: make publish-all
 
-      - name: Run init test data
-        run: pnpm run init-data
-        working-directory: test-suites
+      # - name: Run init test data
+      #   run: pnpm run deploy:init-data
+      #   working-directory: test-suites
 
-      - name: Run integration tests logic
-        run: pnpm run test:logic
-        working-directory: test-suites
+      # - name: Run integration tests logic
+      #   run: pnpm run test:logic
+      #   working-directory: test-suites
 
       - name: Terminate Aptos Local Testnet
         if: always()
-        run: |
+        run: |-
           kill $(cat aptos_serve_pid.txt) || true

@@ -12,7 +12,7 @@ import { PoolClient } from "../clients/poolClient";
 describe("InterestRateStrategy", () => {
   let daiAddress: AccountAddress;
   let aDaiAddress: AccountAddress;
-  const aptosProvider = new AptosProvider();
+  const aptosProvider = AptosProvider.fromEnvs();
   let aTokensClient: ATokensClient;
   let underlyingTokensClient: UnderlyingTokensClient;
   let poolClient: PoolClient;
