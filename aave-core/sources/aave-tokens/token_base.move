@@ -1,26 +1,21 @@
 module aave_pool::token_base {
     use std::option::Self;
     use std::signer;
-    use std::string::{Self, String};
+    use std::string::String;
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_std::string_utils::format2;
     use aptos_framework::event;
     use aptos_framework::fungible_asset::{Self, BurnRef, Metadata, MintRef, TransferRef};
-    use aptos_framework::object::{Self, Object};
+    use aptos_framework::object::{Self, ConstructorRef, Object};
     use aptos_framework::primary_fungible_store;
 
     use aave_acl::acl_manage;
-    use aave_config::error as error_config;
+    use aave_config::error_config;
     use aave_math::wad_ray_math;
 
     friend aave_pool::a_token_factory;
     friend aave_pool::variable_debt_token_factory;
-
-    /// Only fungible asset metadata owner can make changes.
-    const ENOT_OWNER: u64 = 1;
-    const E_TOKEN_ALREADY_EXISTS: u64 = 2;
-    const E_ACCOUNT_NOT_EXISTS: u64 = 3;
-    const E_TOKEN_NOT_EXISTS: u64 = 4;
+    friend aave_pool::user_logic;
 
     #[event]
     /// @dev Emitted when `value` tokens are moved from one account (`from`) to
@@ -38,14 +33,14 @@ module aave_pool::token_base {
     /// @param caller The address performing the mint
     /// @param on_behalf_of The address of the user that will receive the minted tokens
     /// @param value The scaled-up amount being minted (based on user entered amount and balance increase from interest)
-    /// @param balance_increase The increase in scaled-up balance since the last action of 'onBehalfOf'
+    /// @param balance_increase The increase in scaled-up balance since the last action of 'on_behalf_of'
     /// @param index The next liquidity index of the reserve
     struct Mint has store, drop {
         caller: address,
         on_behalf_of: address,
         value: u256,
         balance_increase: u256,
-        index: u256,
+        index: u256
     }
 
     #[event]
@@ -61,29 +56,26 @@ module aave_pool::token_base {
         target: address,
         value: u256,
         balance_increase: u256,
-        index: u256,
+        index: u256
     }
 
     struct UserState has store, copy, drop {
         balance: u128,
-        additional_data: u128,
+        additional_data: u128
     }
 
-    // Map of users address and their state data (key = user_address_atoken_address => UserState)
+    // Map of users address and their state data (key = user_address_token_address => UserState)
     struct UserStateMap has key {
-        value: SmartTable<String, UserState>,
+        value: SmartTable<String, UserState>
     }
 
     struct TokenData has store, copy, drop {
-        underlying_asset: address,
-        treasury: address,
-        scaled_total_supply: u256,
-        resource_account: address
+        scaled_total_supply: u256
     }
 
-    // Atoken metadata_address => TokenData
+    // token metadata_address => TokenData
     struct TokenMap has key {
-        value: SmartTable<address, TokenData>,
+        value: SmartTable<address, TokenData>
     }
 
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
@@ -91,76 +83,76 @@ module aave_pool::token_base {
     struct ManagedFungibleAsset has key {
         mint_ref: MintRef,
         transfer_ref: TransferRef,
-        burn_ref: BurnRef,
+        burn_ref: BurnRef
     }
 
     fun init_module(signer: &signer) {
         only_token_admin(signer);
-        move_to(signer, UserStateMap { value: smart_table::new<String, UserState>() });
-        move_to(signer, TokenMap { value: smart_table::new<address, TokenData>() })
+        move_to(
+            signer,
+            UserStateMap {
+                value: smart_table::new<String, UserState>()
+            }
+        );
+        move_to(
+            signer,
+            TokenMap {
+                value: smart_table::new<address, TokenData>()
+            }
+        )
+    }
+
+    fun assert_token_exists(metadata_address: address) acquires TokenMap {
+        let token_map = borrow_global<TokenMap>(@aave_pool);
+        assert!(
+            smart_table::contains(&token_map.value, metadata_address),
+            error_config::get_etoken_not_exist()
+        );
     }
 
     public fun get_user_state(
-        user: address, token_metadata_address: address
+        user: address, metadata_address: address
     ): UserState acquires UserStateMap {
         let user_state_map = borrow_global<UserStateMap>(@aave_pool);
-        let key = format2(&b"{}_{}", user, token_metadata_address);
+        let key = format2(&b"{}_{}", user, metadata_address);
         if (!smart_table::contains(&user_state_map.value, key)) {
-            return UserState { balance: 0, additional_data: 0, }
+            return UserState { balance: 0, additional_data: 0 }
         };
         *smart_table::borrow(&user_state_map.value, key)
     }
 
     fun set_user_state(
         user: address,
-        token_metadata_address: address,
+        metadata_address: address,
         balance: u128,
         additional_data: u128
     ) acquires UserStateMap {
         let user_state_map = borrow_global_mut<UserStateMap>(@aave_pool);
-        let key = format2(&b"{}_{}", user, token_metadata_address);
-        if (!smart_table::contains(&user_state_map.value, key)) {
-            smart_table::upsert(
-                &mut user_state_map.value,
-                key,
-                UserState { balance, additional_data },
-            )
-        } else {
-            let user_state = smart_table::borrow_mut(&mut user_state_map.value, key);
-            user_state.balance = balance;
-            user_state.additional_data = additional_data;
-        }
+        let key = format2(&b"{}_{}", user, metadata_address);
+
+        smart_table::upsert(
+            &mut user_state_map.value,
+            key,
+            UserState { balance, additional_data }
+        );
     }
 
-    public fun get_token_data(token_metadata_address: address): TokenData acquires TokenMap {
+    public fun get_token_data(metadata_address: address): TokenData acquires TokenMap {
         let token_map = borrow_global<TokenMap>(@aave_pool);
         assert!(
-            smart_table::contains(&token_map.value, token_metadata_address),
-            E_TOKEN_NOT_EXISTS,
+            smart_table::contains(&token_map.value, metadata_address),
+            error_config::get_etoken_not_exist()
         );
 
-        *smart_table::borrow(&token_map.value, token_metadata_address)
+        *smart_table::borrow(&token_map.value, metadata_address)
     }
 
     fun set_scaled_total_supply(
-        token_metadata_address: address, scaled_total_supply: u256
+        metadata_address: address, scaled_total_supply: u256
     ) acquires TokenMap {
-        let a_token_map = borrow_global_mut<TokenMap>(@aave_pool);
-        let token_data =
-            smart_table::borrow_mut(&mut a_token_map.value, token_metadata_address);
+        let token_map = borrow_global_mut<TokenMap>(@aave_pool);
+        let token_data = smart_table::borrow_mut(&mut token_map.value, metadata_address);
         token_data.scaled_total_supply = scaled_total_supply;
-    }
-
-    public fun get_underlying_asset(token_data: &TokenData): address {
-        token_data.underlying_asset
-    }
-
-    public fun get_treasury_address(token_data: &TokenData): address {
-        token_data.treasury
-    }
-
-    public fun get_resource_account(token_data: &TokenData): address {
-        token_data.resource_account
     }
 
     public fun get_previous_index(
@@ -174,35 +166,31 @@ module aave_pool::token_base {
         token_data.scaled_total_supply
     }
 
-    public(friend) fun create_a_token(
-        signer: &signer,
+    /// @notice Creates a new FA Token
+    /// @dev Only callable by the a_token_factory and variable_debt_token_factory module
+    /// @param constructor_ref The constructor reference of the Token
+    /// @param name The name of the Token
+    /// @param symbol The symbol of the Token
+    /// @param decimals The decimals of the Token
+    /// @param icon_uri The icon URI of the Token
+    /// @param project_uri The project URI of the Token
+    public(friend) fun create_token(
+        constructor_ref: &ConstructorRef,
         name: String,
         symbol: String,
         decimals: u8,
         icon_uri: String,
-        project_uri: String,
-        underlying_asset: address,
-        treasury: address,
-        resource_account: address
+        project_uri: String
     ) acquires TokenMap {
-        let account_address = signer::address_of(signer);
-        let token_metadata_address =
-            object::create_object_address(&account_address, *string::bytes(&symbol));
         let token_map = borrow_global_mut<TokenMap>(@aave_pool);
+        let metadata_address = object::address_from_constructor_ref(constructor_ref);
         assert!(
-            !smart_table::contains(&token_map.value, token_metadata_address),
-            E_TOKEN_ALREADY_EXISTS,
+            !smart_table::contains(&token_map.value, metadata_address),
+            error_config::get_etoken_already_exists()
         );
-        let token_data = TokenData {
-            underlying_asset,
-            treasury,
-            scaled_total_supply: 0,
-            resource_account
-        };
-        smart_table::add(&mut token_map.value, token_metadata_address, token_data);
+        let token_data = TokenData { scaled_total_supply: 0 };
+        smart_table::add(&mut token_map.value, metadata_address, token_data);
 
-        let constructor_ref =
-            &object::create_named_object(signer, *string::bytes(&symbol));
         primary_fungible_store::create_primary_store_enabled_fungible_asset(
             constructor_ref,
             option::none(),
@@ -210,7 +198,7 @@ module aave_pool::token_base {
             symbol,
             decimals,
             icon_uri,
-            project_uri,
+            project_uri
         );
 
         // Create mint/burn/transfer refs to allow creator to manage the fungible asset.
@@ -218,68 +206,27 @@ module aave_pool::token_base {
         let burn_ref = fungible_asset::generate_burn_ref(constructor_ref);
         let transfer_ref = fungible_asset::generate_transfer_ref(constructor_ref);
         let metadata_object_signer = object::generate_signer(constructor_ref);
+
         move_to(
             &metadata_object_signer,
-            ManagedFungibleAsset { mint_ref, transfer_ref, burn_ref },
+            ManagedFungibleAsset { mint_ref, transfer_ref, burn_ref }
         );
     }
 
-    public(friend) fun create_variable_token(
-        signer: &signer,
-        name: String,
-        symbol: String,
-        decimals: u8,
-        icon_uri: String,
-        project_uri: String,
-        underlying_asset: address,
-    ) acquires TokenMap {
-        let account_address = signer::address_of(signer);
-        let token_metadata_address =
-            object::create_object_address(&account_address, *string::bytes(&symbol));
-        let token_map = borrow_global_mut<TokenMap>(@aave_pool);
-        assert!(
-            !smart_table::contains(&token_map.value, token_metadata_address),
-            E_TOKEN_ALREADY_EXISTS,
-        );
-        let token_data = TokenData {
-            underlying_asset,
-            treasury: @0x0,
-            scaled_total_supply: 0,
-            resource_account: @0x0
-        };
-        smart_table::add(&mut token_map.value, token_metadata_address, token_data);
-
-        let constructor_ref =
-            &object::create_named_object(signer, *string::bytes(&symbol));
-        primary_fungible_store::create_primary_store_enabled_fungible_asset(
-            constructor_ref,
-            option::none(),
-            name,
-            symbol,
-            decimals,
-            icon_uri,
-            project_uri,
-        );
-
-        // Create mint/burn/transfer refs to allow creator to manage the fungible asset.
-        let mint_ref = fungible_asset::generate_mint_ref(constructor_ref);
-        let burn_ref = fungible_asset::generate_burn_ref(constructor_ref);
-        let transfer_ref = fungible_asset::generate_transfer_ref(constructor_ref);
-        let metadata_object_signer = object::generate_signer(constructor_ref);
-        move_to(
-            &metadata_object_signer,
-            ManagedFungibleAsset { mint_ref, transfer_ref, burn_ref },
-        );
-    }
-
+    /// @notice Mints `amount` tokens to `on_behalf_of`
+    /// @dev Only callable by the a_token_factory and variable_debt_token_factory module
+    /// @param caller The address performing the mint
+    /// @param on_behalf_of The address of the user that will receive the minted Tokens
+    /// @param amount The amount of tokens getting minted
+    /// @param index The next liquidity index of the reserve
+    /// @param metadata_address The address of the Token
     public(friend) fun mint_scaled(
         caller: address,
         on_behalf_of: address,
         amount: u256,
         index: u256,
-        metadata_address: address,
+        metadata_address: address
     ) acquires ManagedFungibleAsset, UserStateMap, TokenMap {
-        assert_token_exists(metadata_address);
         let amount_scaled = wad_ray_math::ray_div(amount, index);
         assert!(amount_scaled != 0, error_config::get_einvalid_mint_amount());
         let scaled_balance = scaled_balance_of(on_behalf_of, metadata_address);
@@ -291,7 +238,12 @@ module aave_pool::token_base {
                     scaled_balance, (user_state.additional_data as u256)
                 );
         let new_balance = user_state.balance + (amount_scaled as u128);
-        set_user_state(on_behalf_of, metadata_address, new_balance, (index as u128));
+        set_user_state(
+            on_behalf_of,
+            metadata_address,
+            new_balance,
+            (index as u128)
+        );
 
         // update scale total supply
         let token_data = get_token_data(metadata_address);
@@ -304,44 +256,49 @@ module aave_pool::token_base {
         let to_wallet =
             primary_fungible_store::ensure_primary_store_exists(on_behalf_of, asset);
         // freeze account
-        fungible_asset::set_frozen_flag(
-            &managed_fungible_asset.transfer_ref, to_wallet, true
-        );
+        if (!fungible_asset::is_frozen(to_wallet)) {
+            fungible_asset::set_frozen_flag(
+                &managed_fungible_asset.transfer_ref, to_wallet, true
+            );
+        };
 
-        let fa = fungible_asset::mint(&managed_fungible_asset.mint_ref, (amount as u64));
+        let fa =
+            fungible_asset::mint(
+                &managed_fungible_asset.mint_ref, (amount_scaled as u64)
+            );
         fungible_asset::deposit_with_ref(
             &managed_fungible_asset.transfer_ref, to_wallet, fa
         );
 
         let amount_to_mint = amount + balance_increase;
-        event::emit(Transfer { from: @0x0, to: on_behalf_of, value: amount_to_mint, });
+        event::emit(Transfer { from: @0x0, to: on_behalf_of, value: amount_to_mint });
         event::emit(
             Mint {
                 caller,
                 on_behalf_of,
                 value: amount_to_mint,
                 balance_increase,
-                index,
-            },
+                index
+            }
         );
     }
 
-    fun assert_token_exists(token_metadata_address: address) acquires TokenMap {
-        let a_token_map = borrow_global<TokenMap>(@aave_pool);
-        assert!(
-            smart_table::contains(&a_token_map.value, token_metadata_address),
-            E_TOKEN_ALREADY_EXISTS,
-        );
-    }
-
+    /// @notice Burns Tokens from `user`
+    /// @dev Only callable by the a_token_factory and variable_debt_token_factory module
+    /// @dev In some instances, the mint event could be emitted from a burn transaction
+    /// if the amount to burn is less than the interest that the user accrued
+    /// @param user The address from which the Tokens will be burned
+    /// @param target The address that will receive the underlying
+    /// @param amount The amount being burned
+    /// @param index The next liquidity index of the reserve
+    /// @param metadata_address The address of the Token
     public(friend) fun burn_scaled(
         user: address,
         target: address,
         amount: u256,
         index: u256,
-        metadata_address: address,
+        metadata_address: address
     ) acquires ManagedFungibleAsset, UserStateMap, TokenMap {
-        assert_token_exists(metadata_address);
         let amount_scaled = wad_ray_math::ray_div(amount, index);
         assert!(amount_scaled != 0, error_config::get_einvalid_mint_amount());
         // get scale balance
@@ -354,7 +311,12 @@ module aave_pool::token_base {
                     scaled_balance, (user_state.additional_data as u256)
                 );
         let new_balance = user_state.balance - (amount_scaled as u128);
-        set_user_state(user, metadata_address, new_balance, (index as u128));
+        set_user_state(
+            user,
+            metadata_address,
+            new_balance,
+            (index as u128)
+        );
 
         // update scale total supply
         let token_data = get_token_data(metadata_address);
@@ -365,41 +327,48 @@ module aave_pool::token_base {
         let asset = get_metadata(metadata_address);
         let burn_ref = &obtain_managed_asset_refs(asset).burn_ref;
         let from_wallet = primary_fungible_store::primary_store(user, asset);
-        fungible_asset::burn_from(burn_ref, from_wallet, (amount as u64));
+        fungible_asset::burn_from(burn_ref, from_wallet, (amount_scaled as u64));
 
         if (balance_increase > amount) {
             let amount_to_mint = balance_increase - amount;
-            event::emit(Transfer { from: @0x0, to: user, value: amount_to_mint, });
+            event::emit(Transfer { from: @0x0, to: user, value: amount_to_mint });
             event::emit(
                 Mint {
                     caller: user,
                     on_behalf_of: user,
                     value: amount_to_mint,
                     balance_increase,
-                    index,
-                },
+                    index
+                }
             );
         } else {
             let amount_to_burn = amount - balance_increase;
-            event::emit(Transfer { from: user, to: @0x0, value: amount_to_burn, });
+            event::emit(Transfer { from: user, to: @0x0, value: amount_to_burn });
             event::emit(
                 Burn {
                     from: user,
                     target,
                     value: amount_to_burn,
                     balance_increase,
-                    index,
-                },
+                    index
+                }
             );
         }
     }
 
+    /// @notice Transfers Tokens from `sender` to `recipient`
+    /// @dev Only callable by the a_token_factory and user_logic module
+    /// @param sender The address from which the Tokens will be transferred
+    /// @param recipient The address that will receive the Tokens
+    /// @param amount The amount being transferred
+    /// @param index The next liquidity index of the reserve
+    /// @param metadata_address The address of the Token
     public(friend) fun transfer(
         sender: address,
         recipient: address,
         amount: u256,
         index: u256,
-        metadata_address: address,
+        metadata_address: address
     ) acquires ManagedFungibleAsset, UserStateMap {
         let sender_scaled_balance = scaled_balance_of(sender, metadata_address);
         let sender_user_state = get_user_state(sender, metadata_address);
@@ -411,7 +380,12 @@ module aave_pool::token_base {
 
         let amount_ray_div = wad_ray_math::ray_div(amount, index);
         let new_sender_balance = sender_user_state.balance - (amount_ray_div as u128);
-        set_user_state(sender, metadata_address, new_sender_balance, (index as u128));
+        set_user_state(
+            sender,
+            metadata_address,
+            new_sender_balance,
+            (index as u128)
+        );
 
         let recipient_scaled_balance = scaled_balance_of(recipient, metadata_address);
         let recipient_user_state = get_user_state(recipient, metadata_address);
@@ -419,15 +393,16 @@ module aave_pool::token_base {
             wad_ray_math::ray_mul(recipient_scaled_balance, index)
                 - wad_ray_math::ray_mul(
                     recipient_scaled_balance,
-                    (recipient_user_state.additional_data as u256),
+                    (recipient_user_state.additional_data as u256)
                 );
 
-        let new_recipient_balance = recipient_user_state.balance + (amount_ray_div as u128);
+        let new_recipient_balance = recipient_user_state.balance
+            + (amount_ray_div as u128);
         set_user_state(
             recipient,
             metadata_address,
             new_recipient_balance,
-            (index as u128),
+            (index as u128)
         );
         // transfer fungible asset
         let asset = get_metadata(metadata_address);
@@ -435,13 +410,22 @@ module aave_pool::token_base {
         let from_wallet = primary_fungible_store::primary_store(sender, asset);
         let to_wallet =
             primary_fungible_store::ensure_primary_store_exists(recipient, asset);
+
+        // freeze account
+        if (!fungible_asset::is_frozen(to_wallet)) {
+            fungible_asset::set_frozen_flag(transfer_ref, to_wallet, true);
+        };
+
         fungible_asset::transfer_with_ref(
-            transfer_ref, from_wallet, to_wallet, (amount as u64)
+            transfer_ref,
+            from_wallet,
+            to_wallet,
+            (amount_ray_div as u64)
         );
 
         if (sender_balance_increase > 0) {
             event::emit(
-                Transfer { from: @0x0, to: sender, value: sender_balance_increase, },
+                Transfer { from: @0x0, to: sender, value: sender_balance_increase }
             );
             event::emit(
                 Mint {
@@ -449,14 +433,15 @@ module aave_pool::token_base {
                     on_behalf_of: sender,
                     value: sender_balance_increase,
                     balance_increase: sender_balance_increase,
-                    index,
-                },
+                    index
+                }
             );
         };
 
+        // if sender == recipient, the following logic will not execute, the event will not be emitted
         if (sender != recipient && recipient_balance_increase > 0) {
             event::emit(
-                Transfer { from: @0x0, to: recipient, value: recipient_balance_increase, },
+                Transfer { from: @0x0, to: recipient, value: recipient_balance_increase }
             );
             event::emit(
                 Mint {
@@ -464,22 +449,12 @@ module aave_pool::token_base {
                     on_behalf_of: recipient,
                     value: recipient_balance_increase,
                     balance_increase: recipient_balance_increase,
-                    index,
-                },
+                    index
+                }
             );
         };
 
-        event::emit(Transfer { from: sender, to: recipient, value: amount, });
-    }
-
-    public(friend) fun transfer_internal(
-        from: address, to: address, amount: u64, metadata_address: address
-    ) acquires ManagedFungibleAsset {
-        let asset = get_metadata(metadata_address);
-        let transfer_ref = &obtain_managed_asset_refs(asset).transfer_ref;
-        let from_wallet = primary_fungible_store::primary_store(from, asset);
-        let to_wallet = primary_fungible_store::ensure_primary_store_exists(to, asset);
-        fungible_asset::transfer_with_ref(transfer_ref, from_wallet, to_wallet, amount);
+        event::emit(Transfer { from: sender, to: recipient, value: amount });
     }
 
     public fun scaled_balance_of(
@@ -497,7 +472,8 @@ module aave_pool::token_base {
     public fun get_scaled_user_balance_and_supply(
         owner: address, metadata_address: address
     ): (u256, u256) acquires UserStateMap, TokenMap {
-        (scaled_balance_of(owner, metadata_address), scaled_total_supply(metadata_address))
+        (scaled_balance_of(owner, metadata_address),
+        scaled_total_supply(metadata_address))
     }
 
     public fun name(metadata_address: address): String {
@@ -515,23 +491,38 @@ module aave_pool::token_base {
         fungible_asset::decimals(asset)
     }
 
-    inline fun get_metadata(metadata_address: address): Object<Metadata> {
+    fun get_metadata(metadata_address: address): Object<Metadata> {
         object::address_to_object<Metadata>(metadata_address)
     }
 
-    inline fun obtain_managed_asset_refs(asset: Object<Metadata>,): &ManagedFungibleAsset acquires ManagedFungibleAsset {
+    inline fun obtain_managed_asset_refs(
+        asset: Object<Metadata>
+    ): &ManagedFungibleAsset acquires ManagedFungibleAsset {
         borrow_global<ManagedFungibleAsset>(object::object_address(&asset))
+    }
+
+    /// @notice Drops the token data from the token map
+    /// @dev Only callable by the a_token_factory and variable_debt_token_factory module
+    /// @param metadata_address The address of the Token
+    public(friend) fun drop_token(metadata_address: address) acquires TokenMap {
+        assert_token_exists(metadata_address);
+
+        let token_map = borrow_global_mut<TokenMap>(@aave_pool);
+        smart_table::remove(&mut token_map.value, metadata_address);
     }
 
     public fun only_pool_admin(account: &signer) {
         assert!(
             acl_manage::is_pool_admin(signer::address_of(account)),
-            error_config::get_ecaller_not_pool_admin(),
+            error_config::get_ecaller_not_pool_admin()
         );
     }
 
     public fun only_token_admin(account: &signer) {
-        assert!(signer::address_of(account) == @aave_pool, ENOT_OWNER)
+        assert!(
+            signer::address_of(account) == @aave_pool,
+            error_config::get_enot_pool_owner()
+        )
     }
 
     #[test_only]

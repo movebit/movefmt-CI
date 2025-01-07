@@ -1,4 +1,4 @@
-import { BigNumber } from "ethers";
+import { BigNumber } from "@ethersproject/bignumber";
 import { expect, test, describe } from "@jest/globals";
 import { BigNumberWrapper } from "../helpers/wadraymath";
 import { HALF_WAD, RAY, WAD, HALF_RAY, MAX_UINT_AMOUNT } from "../helpers/constants";

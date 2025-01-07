@@ -1,47 +1,147 @@
-name: Fmt Linter
+name: lint
 
 on:
   pull_request:
   merge_group:
-    branches: [main]
+    branches:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
+  CLICOLOR: true
+  CI: true
   GITHUB_ACTIONS: true
   APTOS_NETWORK: local
+  UPGRADE_CONTRACTS: false
   ARTIFACTS_LEVEL: all
-  PYTH_HERMES_URL: https://hermes-beta.pyth.network
-  PYTH_CONTRACT_ACCOUNT: 0x0
-  PYTH_DEPLOYER_ACCOUNT: 0x0
-  PYTH_WORMHOLE: 0x0
+  AAVE_LARGE_PACKAGES_PRIVATE_KEY: ${{ secrets.GH_AAVE_LARGE_PACKAGES_PRIVATE_KEY }}  # temp hack: remove after large packages is no longer needed
 
 jobs:
 
-  fmt:
-    name: Run fmt
-    runs-on: ubuntu-latest
-    env:
-      RUST_BACKTRACE: 1
-    timeout-minutes: 60
+  pre-commit:
+    name: Pre-commit
+    runs-on: Larger-Github-Runners
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
 
-      - uses: taiki-e/install-action@nextest
-
-      - uses: Swatinem/rust-cache@v2
+      - name: Check workflow files
+        uses: docker://rhysd/actionlint:latest
+        env:
+          SHELLCHECK_OPTS: --exclude=SC2086,SC2129,SC2046
         with:
-          cache-on-failure: true
+          args: -color
+
+      - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt-get update -y
           sudo apt-get install -y libudev-dev
 
-      - name: Run Install move fmt
+      - name: Install Aptos CLI
         run: |
-          cargo install --git https://github.com/movebit/movefmt --branch develop movefmt
-          export PATH=~/.cargo/bin:$PATH
+          curl -fsSL "https://aptos.dev/scripts/install_cli.py" | python3
+          aptos --version
+          aptos update movefmt
+          echo 'Adding movefmt to PATH'
+          echo "$HOME/.aptos/bin" >> $GITHUB_PATH
 
-      - name: Run fmt check on all files
-        run: make fmt-all
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 9
+          run_install: true
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+
+      - name: Run Pre Commit
+        uses: pre-commit/action@v3.0.1
+
+  fmt:
+    name: fmt
+    runs-on: Larger-Github-Runners
+    env:
+      RUST_BACKTRACE: 1
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libudev-dev
+
+      - name: Install Aptos CLI
+        run: |
+          curl -fsSL "https://aptos.dev/scripts/install_cli.py" | python3
+          aptos --version
+          aptos update movefmt
+          echo 'Adding movefmt to PATH'
+          echo "$HOME/.aptos/bin" >> $GITHUB_PATH
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 9
+          run_install: true
+
+      - name: Fmt Project
+        run: make fmt
+
+  codespell:
+    runs-on: Larger-Github-Runners
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: codespell-project/actions-codespell@v2
+        with:
+          skip: "*.json"
+
+  lint:
+    name: lint
+    needs:
+      - codespell
+    runs-on: Larger-Github-Runners
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libudev-dev
+
+      - name: Install Aptos CLI
+        run: |
+          curl -fsSL "https://aptos.dev/scripts/install_cli.py" | python3
+          aptos --version
+          aptos update movefmt
+          echo 'Adding movefmt to PATH'
+          echo "$HOME/.aptos/bin" >> $GITHUB_PATH
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 9
+          run_install: true
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+
+      - name: Lint project
+        run: make lint

@@ -6,7 +6,7 @@ import {
   isUserTransactionResponse,
   MoveValue,
 } from "@aptos-labs/ts-sdk";
-import { BigNumber } from "ethers";
+import { BigNumber } from "@ethersproject/bignumber";
 import { ReserveData, UserReserveData } from "./interfaces";
 import { aptos } from "../configs/common";
 import { View } from "./helper";

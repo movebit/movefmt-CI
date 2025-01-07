@@ -13,7 +13,7 @@ import {
   isUserTransactionResponse,
   Event,
 } from "@aptos-labs/ts-sdk";
-import { BigNumber } from "ethers";
+import { BigNumber } from "@ethersproject/bignumber";
 import { AptosProvider } from "../wrappers/aptosProvider";
 
 const GetAccountBalance = async (

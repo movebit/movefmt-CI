@@ -7,7 +7,7 @@ import {
   SimpleEntryFunctionArgumentTypes,
   UserTransactionResponse,
 } from "@aptos-labs/ts-sdk";
-import { BigNumber } from "ethers";
+import { BigNumber } from "@ethersproject/bignumber";
 
 export const GetAccountBalance = async (
   aptos: Aptos,

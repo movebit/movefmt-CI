@@ -1,7 +1,7 @@
 /// @title Errors library
 /// @author Aave
 /// @notice Defines the error messages emitted by the different contracts of the Aave protocol
-module aave_config::error {
+module aave_config::error_config {
     /// The caller of the function is not a pool admin
     const ECALLER_NOT_POOL_ADMIN: u64 = 1;
     /// The caller of the function is not an emergency admin
@@ -164,25 +164,89 @@ module aave_config::error {
     const EADDRESSES_PROVIDER_ALREADY_ADDED: u64 = 86;
     /// The token implementation pool address and the pool address provided by the initializing pool do not match
     const EPOOL_ADDRESSES_DO_NOT_MATCH: u64 = 87;
-
     /// User is trying to borrow multiple assets including a siloed one
     const ESILOED_BORROWING_VIOLATION: u64 = 89;
     /// the total debt of the reserve needs to be 0
     const ERESERVE_DEBT_NOT_ZERO: u64 = 90;
     /// FlashLoaning for this asset is disabled
     const EFLASHLOAN_DISABLED: u64 = 91;
+
+    /// Aptos has introduced a new business logic error code range from 1001 to 2000.
+
+    /// aave_acl module error code range from 1001 to 1100.
+    /// Account is not the acl's owner.
+    const ENOT_ACL_OWNER: u64 = 1001;
+    /// Account is missing role.
+    const EROLE_MISSMATCH: u64 = 1002;
+    /// can only renounce roles for self
+    const EROLE_CAN_ONLY_RENOUNCE_SELF: u64 = 1003;
+
+    /// aave_math module error code range from 1101 to 1200.
+    /// Calculation results in overflow
+    const EOVERFLOW: u64 = 1101;
+    /// Cannot divide by zero
+    const EDIVISION_BY_ZERO: u64 = 1102;
+
+    /// aave_oracle module error code range from 1201 to 1300.
+    /// Account is not the oracle's owner.
+    const ENOT_ORACLE_OWNER: u64 = 1201;
+    const EORACLE_RESOURCE_NOT_FOUND: u64 = 1202;
+
+    /// aave_oracle
+    /// Not an asset listing or a pool admin error
+    const ENOT_ASSET_LISTING_OR_POOL_ADMIN: u64 = 1203;
+    /// base currency not set
+    const EBASE_CURRENCY_NOT_SET: u64 = 1204;
+    /// identical base currency already added
+    const EIDENTICAL_BASE_CURRENCY_ALREADY_ADDED: u64 = 1205;
+    /// missing price feed identifier
+    const EMISSING_PRICE_FEED_IDENTIFIER: u64 = 1206;
+    /// missing price vaa
+    const EMISSING_PRICE_VAA: u64 = 1207;
+    /// not existing price feed identifier
+    const EPRICE_FEED_IDENTIFIER_NOT_EXIST: u64 = 1208;
+
+    /// aave_rate module error code range from 1301 to 1400.
+    /// Account is not the rate's owner.
+    const ENOT_RATE_OWNER: u64 = 1301;
+
+    /// aave_pool module error code range from 1401 to 1500.
+    /// Account is not the pool's owner.
+    const ENOT_POOL_OWNER: u64 = 1401;
     /// User is not listed
-    const EUSER_NOT_LISTED: u64 = 92;
-
+    const EUSER_NOT_LISTED: u64 = 1402;
     /// Mismatch of reserves count in storage
-    const ERESERVES_STORAGE_COUNT_MISMATCH: u64 = 93;
+    const ERESERVES_STORAGE_COUNT_MISMATCH: u64 = 1403;
     /// The person who signed must be consistent with on_behalf_of
-    const ESIGNER_AND_ON_BEHALF_OF_NO_SAME: u64 = 94;
+    const ESIGNER_AND_ON_BEHALF_OF_NO_SAME: u64 = 1404;
     /// Account does not exist
-    const EACCOUNT_DOES_NOT_EXIST: u64 = 95;
-
+    const EACCOUNT_DOES_NOT_EXIST: u64 = 1405;
     /// Flashloan payer is different from the flashloan receiver
-    const EFLASHLOAN_PAYER_NOT_RECEIVER: u64 = 95;
+    const EFLASHLOAN_PAYER_NOT_RECEIVER: u64 = 1406;
+    /// Price oracle validation failed
+    const EPRICE_ORACLE_CHECK_FAILED: u64 = 1407;
+    /// reserve list not initialized
+    const ERESERVE_LIST_NOT_INITIALIZED: u64 = 1408;
+
+    /// aave_tokens
+    /// Token already exists
+    const ETOKEN_ALREADY_EXISTS: u64 = 1409;
+    /// Token not exist
+    const ETOKEN_NOT_EXIST: u64 = 1410;
+    /// Resource not exist
+    const ERESOURCE_NOT_EXIST: u64 = 1411;
+    /// Token name already exist
+    const ETOKEN_NAME_ALREADY_EXIST: u64 = 1412;
+    /// Token symbol already exist
+    const ETOKEN_SYMBOL_ALREADY_EXIST: u64 = 1413;
+
+    /// coin migrations
+    /// User has insufficient coins to wrap
+    const EINSUFFICIENT_COINS_TO_WRAP: u64 = 1414;
+    /// User has insufficient fungible assets to unwrap
+    const EINSUFFICIENT_FAS_TO_UNWRAP: u64 = 1415;
+    /// The coin has not been mapped to a fungible asset by Aptos
+    const EUNMAPPED_COIN_TO_FA: u64 = 1416;
 
     public fun get_ecaller_not_pool_admin(): u64 {
         ECALLER_NOT_POOL_ADMIN
@@ -400,10 +464,6 @@ module aave_config::error {
         EINCONSISTENT_EMODE_CATEGORY
     }
 
-    public fun get_eprice_oracle_sentinel_check_failed(): u64 {
-        EPRICE_ORACLE_SENTINEL_CHECK_FAILED
-    }
-
     public fun get_easset_not_borrowable_in_isolation(): u64 {
         EASSET_NOT_BORROWABLE_IN_ISOLATION
     }
@@ -520,6 +580,62 @@ module aave_config::error {
         ERESERVE_DEBT_NOT_ZERO
     }
 
+    public fun get_enot_acl_owner(): u64 {
+        ENOT_ACL_OWNER
+    }
+
+    public fun get_erole_missmatch(): u64 {
+        EROLE_MISSMATCH
+    }
+
+    public fun get_erole_can_only_renounce_self(): u64 {
+        EROLE_CAN_ONLY_RENOUNCE_SELF
+    }
+
+    public fun get_eoverflow(): u64 {
+        EOVERFLOW
+    }
+
+    public fun get_edivision_by_zero(): u64 {
+        EDIVISION_BY_ZERO
+    }
+
+    public fun get_enot_oracle_owner(): u64 {
+        ENOT_ORACLE_OWNER
+    }
+
+    public fun get_eoracle_resource_not_found(): u64 {
+        EORACLE_RESOURCE_NOT_FOUND
+    }
+
+    public fun get_enot_asset_listing_or_pool_admin(): u64 {
+        ENOT_ASSET_LISTING_OR_POOL_ADMIN
+    }
+
+    public fun get_ebase_currency_not_set(): u64 {
+        EBASE_CURRENCY_NOT_SET
+    }
+
+    public fun get_eidentical_base_currency_already_added(): u64 {
+        EIDENTICAL_BASE_CURRENCY_ALREADY_ADDED
+    }
+
+    public fun get_emissing_price_feed_identifier(): u64 {
+        EMISSING_PRICE_FEED_IDENTIFIER
+    }
+
+    public fun get_emissing_price_vaa(): u64 {
+        EMISSING_PRICE_VAA
+    }
+
+    public fun get_eprice_feed_identifier_not_exist(): u64 {
+        EPRICE_FEED_IDENTIFIER_NOT_EXIST
+    }
+
+    public fun get_enot_pool_owner(): u64 {
+        ENOT_POOL_OWNER
+    }
+
     public fun get_eflashloan_disabled(): u64 {
         EFLASHLOAN_DISABLED
     }
@@ -538,5 +654,49 @@ module aave_config::error {
 
     public fun get_flashloan_payer_not_receiver(): u64 {
         EFLASHLOAN_PAYER_NOT_RECEIVER
+    }
+
+    public fun get_eprice_oracle_check_failed(): u64 {
+        EPRICE_ORACLE_CHECK_FAILED
+    }
+
+    public fun get_enot_rate_owner(): u64 {
+        ENOT_RATE_OWNER
+    }
+
+    public fun get_ereserve_list_not_initialized(): u64 {
+        ERESERVE_LIST_NOT_INITIALIZED
+    }
+
+    public fun get_etoken_already_exists(): u64 {
+        ETOKEN_ALREADY_EXISTS
+    }
+
+    public fun get_etoken_not_exist(): u64 {
+        ETOKEN_NOT_EXIST
+    }
+
+    public fun get_eresource_not_exist(): u64 {
+        ERESOURCE_NOT_EXIST
+    }
+
+    public fun get_etoken_name_already_exist(): u64 {
+        ETOKEN_NAME_ALREADY_EXIST
+    }
+
+    public fun get_etoken_symbol_already_exist(): u64 {
+        ETOKEN_SYMBOL_ALREADY_EXIST
+    }
+
+    public fun get_einsufficient_coins_to_wrap(): u64 {
+        EINSUFFICIENT_COINS_TO_WRAP
+    }
+
+    public fun get_einsufficient_fas_to_unwrap(): u64 {
+        EINSUFFICIENT_FAS_TO_UNWRAP
+    }
+
+    public fun get_eunmapped_coin_to_fa(): u64 {
+        EUNMAPPED_COIN_TO_FA
     }
 }

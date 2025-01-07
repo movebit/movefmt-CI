@@ -1,7 +1,8 @@
 #[test_only]
 module aave_config::user_tests {
     use aave_config::helper::Self;
-    use aave_config::user::{
+    use aave_config::user_config::{
+        get_first_asset_id_by_mask,
         get_health_factor_liquidation_threshold,
         get_health_factor_liquidation_threshold_for_testing,
         get_isolated_collateral_supplier_role,
@@ -19,8 +20,7 @@ module aave_config::user_tests {
         is_using_as_collateral_or_borrowing,
         set_borrowing,
         set_using_as_collateral,
-        test_init_module,
-        get_first_asset_id_by_mask,
+        test_init_module
     };
 
     const TEST_SUCCESS: u64 = 1;
@@ -32,17 +32,17 @@ module aave_config::user_tests {
         assert!(
             get_minimum_health_factor_liquidation_threshold()
                 == get_minimum_health_factor_liquidation_threshold_for_testing(),
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
         assert!(
             get_health_factor_liquidation_threshold()
                 == get_health_factor_liquidation_threshold_for_testing(),
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
         assert!(
             get_isolated_collateral_supplier_role()
                 == get_isolated_collateral_supplier_role_for_testing(),
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
         // test default values
         let user_config_map = get_user_config_map();
@@ -58,7 +58,7 @@ module aave_config::user_tests {
         assert!(is_borrowing_one(&mut user_config_map), TEST_SUCCESS);
         assert!(
             is_using_as_collateral_or_borrowing(&mut user_config_map, reserve_index),
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
         // test collateral
         set_using_as_collateral(&mut user_config_map, reserve_index, true);
@@ -67,7 +67,7 @@ module aave_config::user_tests {
         assert!(is_using_as_collateral_one(&user_config_map), TEST_SUCCESS);
         assert!(
             is_using_as_collateral_or_borrowing(&user_config_map, reserve_index),
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
     }
 

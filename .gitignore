@@ -95,5 +95,3 @@ target/
 *.mvcov
 *.trace
 gas-profiling
-
-.aptos

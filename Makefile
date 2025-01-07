@@ -3,57 +3,74 @@ ifndef GITHUB_ACTIONS
   -include .env
 endif
 
-# default env values
-APTOS_NETWORK ?= local
-ARTIFACTS_LEVEL ?= all
-DEFAULT_FUND_AMOUNT ?= 100000000
-DEFAULT_FUNDER_PRIVATE_KEY ?= 0x0
-PYTH_HERMES_URL ?= https://hermes-beta.pyth.network
-PYTH_CONTRACT_ACCOUNT ?= 0x0
-PYTH_DEPLOYER_ACCOUNT ?= 0x0
-PYTH_WORMHOLE ?= 0x0
-
-# ===================== PRIVATE KEYS ===================== #
-
-LARGE_PACKAGES_ACCOUNT_PRIVATE_KEY := 0xc9680e7b29b0a03344fb7e774f9919e5a99b62d25f4c00d91542571dde0e56e6
-
 # ===================== PROFILES ===================== #
 
-PROFILES := aave_acl \
-            aave_config \
-            aave_math \
-            aave_oracle \
-            aave_mock_oracle \
-            aave_pool \
-            a_tokens \
-            underlying_tokens \
-            variable_tokens \
-            deployer_pm \
-            resource_pm
+# aave base profiles
+AAVE_BASE_PROFILES_KEY_MAP = aave_acl=$(AAVE_ACL_PRIVATE_KEY) \
+                 aave_config=$(AAVE_CONFIG_PRIVATE_KEY) \
+                 aave_math=$(AAVE_MATH_PRIVATE_KEY) \
+				 aave_rate=$(AAVE_RATE_PRIVATE_KEY) \
+                 aave_oracle=$(AAVE_ORACLE_PRIVATE_KEY) \
+                 aave_pool=$(AAVE_POOL_PRIVATE_KEY) \
+                 a_tokens=$(A_TOKENS_PRIVATE_KEY) \
+                 underlying_tokens=$(UNDERLYING_TOKENS_PRIVATE_KEY) \
+                 variable_tokens=$(VARIABLE_TOKENS_PRIVATE_KEY) \
+                 aave_large_packages=$(AAVE_LARGE_PACKAGES_PRIVATE_KEY) \
+                 aave_data=$(AAVE_DATA_PRIVATE_KEY)
 
-TEST_PROFILES := test_account_0 \
-                 test_account_1 \
-                 test_account_2 \
-                 test_account_3 \
-                 test_account_4 \
-                 test_account_5
+ifeq ($(APTOS_NETWORK), local)
+  AAVE_PROFILES_KEY_MAP = $(AAVE_BASE_PROFILES_KEY_MAP) data_feeds=$(AAVE_DATA_FEEDS_PRIVATE_KEY) platform=$(AAVE_PLATFORM_PRIVATE_KEY)
+else
+  AAVE_PROFILES_KEY_MAP = $(AAVE_BASE_PROFILES_KEY_MAP)
+endif
 
-ORACLE_PROFILES := pyth=$(PYTH_CONTRACT_ACCOUNT),deployer=$(PYTH_DEPLOYER_ACCOUNT),wormhole=$(PYTH_WORMHOLE)
+AAVE_PROFILES := $(shell echo $(AAVE_PROFILES_KEY_MAP) | tr ' ' '\n' | cut -d '=' -f1)
 
-LARGE_PACKAGES_PROFILE := aave_large_packages=aave_large_packages
+# test user profiles
+TEST_PROFILES_KEY_MAP = test_account_0=$(TEST_ACCOUNT_0_PRIVATE_KEY) \
+                      test_account_1=$(TEST_ACCOUNT_1_PRIVATE_KEY) \
+                      test_account_2=$(TEST_ACCOUNT_2_PRIVATE_KEY) \
+                      test_account_3=$(TEST_ACCOUNT_3_PRIVATE_KEY) \
+                      test_account_4=$(TEST_ACCOUNT_4_PRIVATE_KEY) \
+                      test_account_5=$(TEST_ACCOUNT_5_PRIVATE_KEY)
+
+TEST_PROFILES := $(shell echo $(TEST_PROFILES_KEY_MAP) | tr ' ' '\n' | cut -d '=' -f1)
 
 # ===================== NAMED ADDRESSES ===================== #
 
-define APTOS_NAMED_ADDRESSES
-$(foreach profile,$(PROFILES),$(profile)=$(profile),)$(ORACLE_PROFILES),$(LARGE_PACKAGES_PROFILE)
+# resource named addresses
+AAVE_ORACLE_ADDRESS := $(shell [ -f .aptos/config.yaml ] && yq '.profiles.aave_oracle.account' .aptos/config.yaml || echo "")
+LARGE_PACKAGE_ADDRESS := $(shell [ -f .aptos/config.yaml ] && yq '.profiles.aave_large_packages.account' .aptos/config.yaml || echo "")
+
+RESOURCE_NAMED_ADDRESSES := aave_oracle_racc_address=$(shell \
+    [ -n "$(AAVE_ORACLE_ADDRESS)" ] && \
+    aptos account derive-resource-account-address \
+        --address "$(AAVE_ORACLE_ADDRESS)" \
+        --seed "AAVE_ORACLE" \
+        --seed-encoding "Utf8" | jq -r '.Result' || \
+    echo "")
+
+ORACLE_NAMED_ADDRESSES := $(shell \
+  if [ -n "$(CHAINLINK_DATA_FEEDS)" ] && [ -n "$(CHAINLINK_PLATFORM)" ]; then \
+    echo ", data_feeds=$(CHAINLINK_DATA_FEEDS), platform=$(CHAINLINK_PLATFORM)"; \
+  else \
+    echo ""; \
+  fi)
+
+define AAVE_NAMED_ADDRESSES
+$(foreach profile,$(AAVE_PROFILES),$(profile)=$(profile),) \
+$(RESOURCE_NAMED_ADDRESSES) \
+$(ORACLE_NAMED_ADDRESSES)
 endef
 
 # ======================= CLEAN ====================== #
+
 clean-package-%:
 	cd ./aave-core/aave-$* && rm -rf build
 
-clean-root:
+clean-core:
 	cd ./aave-core && rm -rf build
+
 # ===================== CONFIG ===================== #
 
 set-workspace-config:
@@ -71,54 +88,97 @@ init-workspace-config:
 # ===================== TESTING ===================== #
 
 local-testnet:
-	aptos node run-local-testnet --with-faucet --force-restart
+	aptos node run-localnet \
+	--assume-yes \
+	--no-txn-stream \
+	--force-restart \
+	--faucet-port 8081 \
+	--performance
+
+local-testnet-docker:
+	aptos node run-localnet \
+	--force-restart \
+	--performance \
+	--with-indexer-api \
+	--indexer-api-port 8090 \
+	--faucet-port 8081 \
+	--use-host-postgres \
+	--host-postgres-host "postgres" \
+	--host-postgres-port 5432 \
+	--host-postgres-password "postgres" \
+	--postgres-user "postgres" \
+	--postgres-database "indexer" \
+	--existing-hasura-url http://hasura:8092
 
 ts-test:
 	cd test-suites && \
 	@pnpm i && \
-	@pnpm run init-data && \
-	@pnpm run core-operations && \
+	@pnpm run deploy:init-data && \
+	@pnpm run deploy:core-operations && \
 	@pnpm run test
 
 test-all:
 	make test-acl
 	make test-config
 	make test-math
-	make test-mock-oracle
+	make test-rate
+	make test-chainlink-platform
+	make test-chainlink-data-feeds
+	make test-oracle
 	make test-pool
 
 # ===================== PROFILES ===================== #
 
 init-profiles:
-	@for profile in $(PROFILES); do \
-		echo | aptos init --profile $$profile --network $(APTOS_NETWORK) --assume-yes --skip-faucet; \
-	done
-	aptos init --profile aave_large_packages --network $(APTOS_NETWORK) --assume-yes --skip-faucet --private-key $(LARGE_PACKAGES_ACCOUNT_PRIVATE_KEY);
+	@if [ "$(UPGRADE_CONTRACTS)" = "true" ]; then \
+		echo "UPGRADE_CONTRACTS is true, using fixed aave profiles"; \
+		for profile in $(shell echo $(AAVE_PROFILES_KEY_MAP) | tr ' ' '\n' | cut -d '=' -f 1); do \
+			PRIVATE_KEY=$$(echo $(AAVE_PROFILES_KEY_MAP) | tr ' ' '\n' | grep "^$$profile=" | cut -d '=' -f2); \
+			echo "Initializing profile: $$profile ..."; \
+			echo | aptos init --profile $$profile --network $(APTOS_NETWORK) --assume-yes --skip-faucet --private-key $$PRIVATE_KEY; \
+		done; \
+	else \
+		echo "UPGRADE_CONTRACTS is false, generating new aave profiles ..."; \
+		for profile in $(AAVE_PROFILES); do \
+			echo "Initializing aave profile: $$profile with random private key"; \
+			echo | aptos init --profile $$profile --network $(APTOS_NETWORK) --assume-yes --skip-faucet; \
+		done; \
+	fi
 
 init-test-profiles:
-	@for profile in $(TEST_PROFILES); do \
-		echo | aptos init --profile $$profile --network $(APTOS_NETWORK) --assume-yes --skip-faucet; \
-	done
+	@if [ "$(UPGRADE_CONTRACTS)" = "true" ]; then \
+		echo "UPGRADE_CONTRACTS is true, using fixed test profiles"; \
+		for profile in $(shell echo $(TEST_PROFILES_KEY_MAP) | tr ' ' '\n' | cut -d '=' -f 1); do \
+			PRIVATE_KEY=$$(echo $(TEST_PROFILES_KEY_MAP) | tr ' ' '\n' | grep "^$$profile=" | cut -d '=' -f2); \
+			echo "Initializing test profile: $$profile ..."; \
+			echo | aptos init --profile $$profile --network $(APTOS_NETWORK) --assume-yes --skip-faucet --private-key $$PRIVATE_KEY; \
+		done; \
+	else \
+		echo "UPGRADE_CONTRACTS is false, generating new test profiles ..."; \
+		for profile in $(TEST_PROFILES); do \
+			echo "Initializing test profile: $$profile with random private key"; \
+			echo | aptos init --profile $$profile --network $(APTOS_NETWORK) --assume-yes --skip-faucet; \
+		done; \
+	fi
 
 fund-profiles:
-	@for profile in $(PROFILES); do \
-		aptos account fund-with-faucet --account $$profile --amount $(DEFAULT_FUND_AMOUNT) --profile $$profile  && sleep 5; \
+	@for profile in $(AAVE_PROFILES); do \
+		aptos account fund-with-faucet --account $$profile --amount $(DEFAULT_FUND_AMOUNT) --profile $$profile; \
 	done
-	aptos account fund-with-faucet --account aave_large_packages --amount $(DEFAULT_FUND_AMOUNT) --profile aave_large_packages;
 
 fund-test-profiles:
 	@for profile in $(TEST_PROFILES); do \
-		aptos account fund-with-faucet --account $$profile --amount $(DEFAULT_FUND_AMOUNT) --profile $$profile  && sleep 5; \
+		aptos account fund-with-faucet --account $$profile --amount $(DEFAULT_FUND_AMOUNT) --profile $$profile; \
 	done
 
 top-up-profiles:
-	@for profile in $(PROFILES); do \
-		aptos account transfer --account $$profile --amount $(DEFAULT_FUND_AMOUNT) --assume-yes --private-key $(DEFAULT_FUNDER_PRIVATE_KEY) && sleep 5; \
+	@for profile in $(AAVE_PROFILES); do \
+		aptos account transfer --account $$profile --amount $(DEFAULT_FUND_AMOUNT) --assume-yes --private-key $(DEFAULT_FUNDER_PRIVATE_KEY); \
 	done
 
 top-up-test-profiles:
 	@for profile in $(TEST_PROFILES); do \
-		aptos account transfer --account $$profile --amount $(DEFAULT_FUND_AMOUNT) --assume-yes --private-key $(DEFAULT_FUNDER_PRIVATE_KEY) && sleep 5; \
+		aptos account transfer --account $$profile --amount $(DEFAULT_FUND_AMOUNT) --assume-yes --private-key $(DEFAULT_FUNDER_PRIVATE_KEY); \
 	done
 
 # ===================== PACKAGE AAVE-ACL ===================== #
@@ -128,7 +188,8 @@ compile-acl:
 	--included-artifacts $(ARTIFACTS_LEVEL) \
 	--save-metadata \
 	--package-dir "aave-acl" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
 
 publish-acl:
 	cd aave-core && aptos move publish --assume-yes \
@@ -136,21 +197,32 @@ publish-acl:
 	--included-artifacts $(ARTIFACTS_LEVEL) \
 	--sender-account aave_acl \
 	--profile aave_acl \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
+	--gas-unit-price 100 \
+	--max-gas 10000
 
 test-acl:
 	cd aave-core && aptos move test \
 	--ignore-compile-warnings \
 	--skip-attribute-checks \
 	--package-dir "aave-acl" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}" \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
   	--coverage
 
 doc-acl:
 	cd aave-core && aptos move document \
 	--skip-attribute-checks \
 	--package-dir "aave-acl" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
+
+fmt-acl:
+	aptos move fmt \
+	--package-path "aave-core/aave-acl" \
+	--config-path ./movefmt.toml \
+	--emit-mode "overwrite" \
+	-v
 
 # ===================== PACKAGE AAVE-CONFIG ===================== #
 
@@ -159,7 +231,8 @@ compile-config:
 	--included-artifacts $(ARTIFACTS_LEVEL) \
 	--save-metadata \
 	--package-dir "aave-config" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
 
 publish-config:
 	cd aave-core && aptos move publish --assume-yes \
@@ -167,21 +240,32 @@ publish-config:
 	--included-artifacts $(ARTIFACTS_LEVEL) \
 	--sender-account aave_config \
 	--profile aave_config \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
+	--gas-unit-price 100 \
+	--max-gas 50000
 
 test-config:
 	cd aave-core && aptos move test \
 	--ignore-compile-warnings \
 	--skip-attribute-checks \
 	--package-dir "aave-config" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}" \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
   	--coverage
 
 doc-config:
 	cd aave-core && aptos move document \
 	--skip-attribute-checks \
 	--package-dir "aave-config" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
+
+fmt-config:
+	aptos move fmt \
+	--package-path "aave-core/aave-config" \
+	--config-path ./movefmt.toml \
+	--emit-mode "overwrite" \
+	-v
 
 # ===================== PACKAGE AAVE-LARGE-PACKAGES ===================== #
 
@@ -190,7 +274,8 @@ compile-large-packages:
 	--included-artifacts $(ARTIFACTS_LEVEL) \
 	--save-metadata \
 	--package-dir "aave-large-packages" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
 
 publish-large-packages:
 	cd aave-core && aptos move publish --assume-yes \
@@ -198,21 +283,32 @@ publish-large-packages:
 	--included-artifacts $(ARTIFACTS_LEVEL) \
 	--sender-account aave_large_packages \
 	--profile aave_large_packages \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
+	--gas-unit-price 100 \
+	--max-gas 10000
 
 test-large-packages:
 	cd aave-core && aptos move test \
 	--ignore-compile-warnings \
 	--skip-attribute-checks \
 	--package-dir "aave-large-packages" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}" \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
   	--coverage
 
 doc-large-packages:
 	cd aave-core && aptos move document \
 	--skip-attribute-checks \
 	--package-dir "aave-large-packages" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
+
+fmt-large-packages:
+	aptos move fmt \
+	--package-path "aave-core/aave-large-packages" \
+	--config-path ./movefmt.toml \
+	--emit-mode "overwrite" \
+	-v
 
 # ===================== PACKAGE AAVE-MATH ===================== #
 
@@ -221,7 +317,8 @@ compile-math:
 	--included-artifacts $(ARTIFACTS_LEVEL) \
 	--save-metadata \
 	--package-dir "aave-math" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
 
 publish-math:
 	cd aave-core && aptos move publish --assume-yes \
@@ -229,21 +326,164 @@ publish-math:
 	--included-artifacts $(ARTIFACTS_LEVEL) \
 	--sender-account aave_math \
 	--profile aave_math \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
+	--gas-unit-price 100 \
+	--max-gas 10000
 
 test-math:
 	cd aave-core && aptos move test \
 	--ignore-compile-warnings \
 	--skip-attribute-checks \
 	--package-dir "aave-math" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}" \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
   	--coverage
 
 doc-math:
 	cd aave-core && aptos move document \
 	--skip-attribute-checks \
 	--package-dir "aave-math" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
+
+fmt-math:
+	aptos move fmt \
+	--package-path "aave-core/aave-math" \
+	--config-path ./movefmt.toml \
+	--emit-mode "overwrite" \
+	-v
+
+# ===================== PACKAGE AAVE-RATE ===================== #
+
+compile-rate:
+	cd aave-core && aptos move compile \
+	--included-artifacts $(ARTIFACTS_LEVEL) \
+	--save-metadata \
+	--package-dir "aave-rate" \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
+
+publish-rate:
+	cd aave-core && aptos move publish --assume-yes \
+	--package-dir "aave-rate" \
+	--included-artifacts $(ARTIFACTS_LEVEL) \
+	--sender-account aave_rate \
+	--profile aave_rate \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
+	--gas-unit-price 100 \
+	--max-gas 20000
+
+test-rate:
+	cd aave-core && aptos move test \
+	--ignore-compile-warnings \
+	--skip-attribute-checks \
+	--package-dir "aave-rate" \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
+  	--coverage
+
+doc-rate:
+	cd aave-core && aptos move document \
+	--skip-attribute-checks \
+	--package-dir "aave-rate" \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
+
+fmt-rate:
+	aptos move fmt \
+	--package-path "aave-core/aave-rate" \
+	--config-path ./movefmt.toml \
+	--emit-mode "overwrite" \
+	-v
+
+# ===================== PACKAGE AAVE-DATA ===================== #
+
+compile-data:
+	cd aave-core && aptos move compile \
+	--included-artifacts $(ARTIFACTS_LEVEL) \
+	--save-metadata \
+	--package-dir "aave-data" \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
+
+publish-data:
+	cd aave-core && aptos move publish --assume-yes \
+	--package-dir "aave-data" \
+	--included-artifacts $(ARTIFACTS_LEVEL) \
+	--sender-account aave_data \
+	--profile aave_data \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
+
+test-data:
+	cd aave-core && aptos move test \
+	--ignore-compile-warnings \
+	--skip-attribute-checks \
+	--package-dir "aave-data" \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
+  	--coverage
+
+fmt-data:
+	aptos move fmt \
+	--package-path "aave-core/aave-data" \
+	--config-path ./movefmt.toml \
+	--emit-mode "overwrite" \
+	-v
+
+# ===================== PACKAGES CHAINLINK ===================== #
+
+compile-chainlink-platform:
+	cd aave-core && aptos move compile \
+	--included-artifacts $(ARTIFACTS_LEVEL) \
+    --save-metadata \
+	--package-dir "chainlink-platform" \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
+
+test-chainlink-platform:
+	cd aave-core && aptos move test \
+	--ignore-compile-warnings \
+	--skip-attribute-checks \
+	--package-dir "chainlink-platform" \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
+  	--coverage
+
+publish-chainlink-platform:
+	cd aave-core && aptos move publish --assume-yes \
+	--package-dir "chainlink-platform" \
+	--included-artifacts $(ARTIFACTS_LEVEL) \
+	--sender-account platform \
+	--profile platform \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
+
+compile-chainlink-data-feeds:
+	cd aave-core && aptos move compile \
+	--included-artifacts $(ARTIFACTS_LEVEL) \
+    --save-metadata \
+	--package-dir "chainlink-data-feeds" \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
+
+test-chainlink-data-feeds:
+	cd aave-core && aptos move test \
+	--ignore-compile-warnings \
+	--skip-attribute-checks \
+	--package-dir "chainlink-data-feeds" \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
+  	--coverage
+
+publish-chainlink-data-feeds:
+	cd aave-core && aptos move publish --assume-yes \
+	--package-dir "chainlink-data-feeds" \
+	--included-artifacts $(ARTIFACTS_LEVEL) \
+	--sender-account data_feeds \
+	--profile data_feeds \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
 
 # ===================== PACKAGE AAVE-ORACLE ===================== #
 
@@ -252,7 +492,8 @@ compile-oracle:
 	--included-artifacts $(ARTIFACTS_LEVEL) \
     --save-metadata \
 	--package-dir "aave-oracle" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
 
 publish-oracle:
 	cd aave-core && aptos move publish --assume-yes \
@@ -260,52 +501,32 @@ publish-oracle:
 	--included-artifacts $(ARTIFACTS_LEVEL) \
 	--sender-account aave_oracle \
 	--profile aave_oracle \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
+	--gas-unit-price 100 \
+	--max-gas 30000
 
 test-oracle:
 	cd aave-core && aptos move test \
 	--ignore-compile-warnings \
 	--skip-attribute-checks \
 	--package-dir "aave-oracle" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}" \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
   	--coverage
 
 doc-oracle:
 	cd aave-core && aptos move document \
 	--skip-attribute-checks \
 	--package-dir "aave-oracle" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
 
-# ===================== PACKAGE AAVE-MOCK-ORACLE ===================== #
-
-compile-mock-oracle:
-	cd aave-core && aptos move compile \
-	--included-artifacts $(ARTIFACTS_LEVEL) \
-    --save-metadata \
-	--package-dir "aave-mock-oracle" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
-
-publish-mock-oracle:
-	cd aave-core && aptos move publish --assume-yes \
-	--package-dir "aave-mock-oracle" \
-	--included-artifacts $(ARTIFACTS_LEVEL) \
-	--sender-account aave_mock_oracle \
-	--profile aave_mock_oracle \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
-
-test-mock-oracle:
-	cd aave-core && aptos move test \
-	--ignore-compile-warnings \
-	--skip-attribute-checks \
-	--package-dir "aave-mock-oracle" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}" \
-  	--coverage
-
-doc-mock-oracle:
-	cd aave-core && aptos move document \
-	--skip-attribute-checks \
-	--package-dir "aave-mock-oracle" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+fmt-oracle:
+	aptos move fmt \
+	--package-path "aave-core/aave-oracle" \
+	--config-path ./movefmt.toml \
+	--emit-mode "overwrite" \
+	-v
 
 # ===================== PACKAGE AAVE-POOL ===================== #
 
@@ -313,7 +534,8 @@ compile-pool:
 	cd aave-core && aptos move compile \
 	--included-artifacts $(ARTIFACTS_LEVEL) \
 	--save-metadata \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
 
 publish-pool:
 	cd aave-core && aptos move publish --assume-yes \
@@ -321,7 +543,10 @@ publish-pool:
 	--chunked-publish \
 	--sender-account aave_pool \
 	--profile aave_pool \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--skip-fetch-latest-git-deps \
+	--large-packages-module-address "$(LARGE_PACKAGE_ADDRESS)" \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
+	--chunk-size 45000
 
 publish-pool-local:
 	cd test-suites && \
@@ -331,82 +556,178 @@ test-pool:
 	cd aave-core && aptos move test \
 	--ignore-compile-warnings \
 	--skip-attribute-checks \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}" \
+	--skip-fetch-latest-git-deps \
+	--named-addresses "${AAVE_NAMED_ADDRESSES}" \
   	--coverage
 
 doc-pool:
 	cd aave-core && aptos move document \
 	--skip-attribute-checks \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+	--named-addresses "${AAVE_NAMED_ADDRESSES}"
 
-# ===================== PACKAGE AAVE-SCRIPTS ===================== #
+fmt-pool:
+	aptos move fmt \
+	--package-path "aave-core" \
+	--config-path ./movefmt.toml \
+	--emit-mode "overwrite" \
+	-v
 
-compile-scripts:
-	cd aave-core && aptos move compile \
-	--included-artifacts $(ARTIFACTS_LEVEL) \
-    --save-metadata \
-	--package-dir "aave-scripts" \
-	--named-addresses "${APTOS_NAMED_ADDRESSES}"
+# ===================== AAVE-SCRIPTS ===================== #
 
-run-script-post-publish:
-	cd aave-core && \
-    aptos move run-script \
-    --assume-yes \
-    --compiled-script-path aave-scripts/build/AaveScripts/bytecode_scripts/post_publish.mv \
+configure-acl:
+	aptos move run-script \
+	--assume-yes \
+	--compiled-script-path aave-scripts/build/AaveScripts/bytecode_scripts/configure_acl.mv \
     --sender-account=aave_acl \
     --profile=aave_acl
 
-run-script-xxx:
-	cd aave-core && \
-    aptos move run-script \
-    --assume-yes \
-    --script-path aave-scripts/sources/post-publish.move \
-    --sender-account=aave_acl \
-    --profile=aave_acl
+create-reserves:
+	aptos move run-script \
+	--assume-yes \
+	--compiled-script-path aave-scripts/build/AaveScripts/bytecode_scripts/create_reserves.mv \
+    --sender-account=aave_pool \
+    --profile=aave_pool
+
+create-emodes:
+	aptos move run-script \
+	--assume-yes \
+	--compiled-script-path aave-scripts/build/AaveScripts/bytecode_scripts/create_emodes.mv \
+    --sender-account=aave_pool \
+    --profile=aave_pool
+
+configure-reserves:
+	aptos move run-script \
+	--assume-yes \
+	--compiled-script-path aave-scripts/build/AaveScripts/bytecode_scripts/configure_reserves.mv \
+    --sender-account=aave_pool \
+    --profile=aave_pool
+
+configure-interest-rates:
+	aptos move run-script \
+	--assume-yes \
+	--compiled-script-path aave-scripts/build/AaveScripts/bytecode_scripts/configure_interest_rates.mv \
+    --sender-account=aave_pool \
+    --profile=aave_pool
+
+configure-price-feeds:
+	aptos move run-script \
+	--assume-yes \
+	--compiled-script-path aave-scripts/build/AaveScripts/bytecode_scripts/configure_price_feeds.mv \
+    --sender-account=aave_pool \
+    --profile=aave_pool
+
+fmt-scripts:
+	aptos move fmt \
+	--package-path "aave-core/aave-scripts" \
+	--config-path ./movefmt.toml \
+	--emit-mode "overwrite" \
+	-v
 
 # ===================== GLOBAL COMMANDS ===================== #
 
+ifeq ($(APTOS_NETWORK), local)
+COMPILE_CHAINLINK_TARGETS := compile-chainlink-platform compile-chainlink-data-feeds
+PUBLISH_CHAINLINK_TARGETS := publish-chainlink-platform publish-chainlink-data-feeds
+else
+COMPILE_CHAINLINK_TARGETS :=
+PUBLISH_CHAINLINK_TARGETS :=
+endif
+
 compile-all:
-	make compile-acl
 	make compile-config
-	@if [ "$(APTOS_NETWORK)" = "local" ]; then \
-		make compile-large-packages; \
-	else \
-		echo "Skipping compile-large-packages for APTOS_NETWORK different to local"; \
-	fi
+	make compile-acl
+	make compile-large-packages
 	make compile-math
-	make compile-mock-oracle
+	make compile-rate
+	@for target in $(COMPILE_CHAINLINK_TARGETS); do \
+	    make $$target; \
+	done
+	make compile-oracle
 	make compile-pool
+	make compile-data
 
 publish-all:
-	make publish-acl
 	make publish-config
-	@if [ "$(APTOS_NETWORK)" = "local" ]; then \
-		make publish-large-packages; \
-	else \
-		echo "Skipping publish-large-packages for APTOS_NETWORK different than local"; \
-	fi
+	make publish-acl
+	make publish-large-packages
 	make publish-math
-	make publish-mock-oracle
+	make publish-rate
+	@for target in $(PUBLISH_CHAINLINK_TARGETS); do \
+	    make $$target; \
+	done
+	make publish-oracle
 	make publish-pool
+	make publish-data
 
 doc-all:
-	make doc-acl
 	make doc-config
+	make doc-acl
 	make doc-large-packages
 	make doc-math
-	make doc-mock-oracle
+	make doc-rate
+	make doc-oracle
 	make doc-pool
 
 clean-all:
-	make clean-package-acl
 	make clean-package-config
-	make clean-large-packages
+	make clean-package-acl
+	make clean-package-large-packages
 	make clean-package-math
-	make clean-package-mock-oracle
+	make clean-package-rate
+	make clean-chainlink-platform
+	make clean-chainlink-data-feeds
 	make clean-package-oracle
-	make clean-root
+	make clean-core
+	make clean-data
+
+# ------------------------------------------------------------
+# Formatting
+# ------------------------------------------------------------
+
+fmt: fmt-move fmt-prettier fmt-markdown
 
 # fmt & lint all directories
-fmt-all:
-	movefmt --config-path=./movefmt.toml --emit "overwrite" -v
+fmt-move:
+	make fmt-acl
+	make fmt-config
+	make fmt-large-packages
+	make fmt-math
+	make fmt-rate
+	make fmt-oracle
+	make fmt-pool
+	make fmt-data
+	make fmt-scripts
+
+fmt-prettier:
+	pnpm prettier:fix
+
+fmt-markdown:
+	pnpm md:fix
+
+# ------------------------------------------------------------
+# Validate code
+# ------------------------------------------------------------
+
+lint-prettier:
+	pnpm prettier:validate
+
+lint-markdown:
+	pnpm md:lint
+
+lint-codespell: ensure-codespell
+	codespell --skip "*.json"
+
+ensure-codespell:
+	@if ! command -v codespell &> /dev/null; then \
+		echo "codespell not found. Please install it by running the command `pip install codespell` or refer to the following link for more information: https://github.com/codespell-project/codespell" \
+		exit 1; \
+    fi
+
+lint:
+	make lint-prettier && \
+	make lint-markdown && \
+	make fmt && \
+	make lint-codespell
+
+fix-lint:
+	make fmt

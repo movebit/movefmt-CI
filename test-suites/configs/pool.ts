@@ -1,16 +1,11 @@
 import { Account, MoveFunctionId } from "@aptos-labs/ts-sdk";
-import path from "path";
-import dotenv from "dotenv";
 import { AptosProvider } from "../wrappers/aptosProvider";
-
-const envPath = path.resolve(__dirname, "../../.env");
-dotenv.config({ path: envPath });
 
 // Resources Admin Account
 // POOL
-const aptosProvider = new AptosProvider();
+const aptosProvider = AptosProvider.fromEnvs();
 export const PoolManager = Account.fromPrivateKey({
-  privateKey: aptosProvider.getProfilePrivateKeyByName("aave_pool"),
+  privateKey: aptosProvider.getProfileAccountPrivateKeyByName("aave_pool"),
 });
 export const PoolManagerAccountAddress = PoolManager.accountAddress.toString();
 
@@ -74,7 +69,6 @@ export const PoolConfiguratorSetUnbackedMintCapFuncAddr: MoveFunctionId = `${Poo
 export const PoolConfiguratorUpdateBridgeProtocolFeeFuncAddr: MoveFunctionId = `${PoolManagerAccountAddress}::pool_configurator::update_bridge_protocol_fee`;
 export const PoolConfiguratorUpdateFlashloanPremiumToProtocolFuncAddr: MoveFunctionId = `${PoolManagerAccountAddress}::pool_configurator::update_flashloan_premium_to_protocol`;
 export const PoolConfiguratorUpdateFlashloanPremiumTotalFuncAddr: MoveFunctionId = `${PoolManagerAccountAddress}::pool_configurator::update_flashloan_premium_total`;
-export const PoolConfiguratorConfigureReservesFuncAddr: MoveFunctionId = `${PoolManagerAccountAddress}::pool_configurator::configure_reserves`;
 
 // View
 export const PoolConfiguratorGetRevisionFuncAddr: MoveFunctionId = `${PoolManagerAccountAddress}::pool_configurator::get_revision`;
@@ -101,23 +95,6 @@ export const PoolGetUserEmodeFuncAddr: MoveFunctionId = `${PoolManagerAccountAdd
 
 // Generic Logic
 // Internal methods are tested in other modules
-
-/**
- * -------------------------------------------------------------------------
- * default_reserve_interest_rate_strategy
- * -------------------------------------------------------------------------
- */
-// Entry
-export const SetReserveInterestRateStrategyFuncAddr: MoveFunctionId = `${PoolManagerAccountAddress}::default_reserve_interest_rate_strategy::set_reserve_interest_rate_strategy`;
-
-// View
-export const GetGetOptimalUsageRatioFuncAddr: MoveFunctionId = `${PoolManagerAccountAddress}::default_reserve_interest_rate_strategy::get_optimal_usage_ratio`;
-export const GetGetMaxExcessUsageRatioFuncAddr: MoveFunctionId = `${PoolManagerAccountAddress}::default_reserve_interest_rate_strategy::get_max_excess_usage_ratio`;
-export const GetVariableRateSlope1FuncAddr: MoveFunctionId = `${PoolManagerAccountAddress}::default_reserve_interest_rate_strategy::get_variable_rate_slope1`;
-export const GetVariableRateSlope2FuncAddr: MoveFunctionId = `${PoolManagerAccountAddress}::default_reserve_interest_rate_strategy::get_variable_rate_slope2`;
-export const GetBaseVariableBorrowRateFuncAddr: MoveFunctionId = `${PoolManagerAccountAddress}::default_reserve_interest_rate_strategy::get_base_variable_borrow_rate`;
-export const GetMaxVariableBorrowRateFuncAddr: MoveFunctionId = `${PoolManagerAccountAddress}::default_reserve_interest_rate_strategy::get_max_variable_borrow_rate`;
-export const CalculateInterestRatesFuncAddr: MoveFunctionId = `${PoolManagerAccountAddress}::default_reserve_interest_rate_strategy::calculate_interest_rates`;
 
 /**
  * -------------------------------------------------------------------------

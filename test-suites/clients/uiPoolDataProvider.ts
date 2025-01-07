@@ -69,6 +69,7 @@ export type BaseCurrencyData = {
 };
 
 export type UserReserveData = {
+  decimals: bigint;
   underlyingAsset: AccountAddress;
   scaledATokenBalance: bigint;
   usageAsCollateralEnabledOnUser: boolean;
@@ -175,6 +176,7 @@ export class UiPoolDataProviderClient extends AptosContractWrapperBaseClass {
     const userReserves = userReserveDataRaw.map(
       (item) =>
         ({
+          decimals: BigInt(item.decimals),
           underlyingAsset: AccountAddress.fromString(item.underlying_asset.toString()),
           scaledATokenBalance: BigInt(item.scaled_a_token_balance),
           usageAsCollateralEnabledOnUser: item.usage_as_collateral_enabled_on_user as boolean,

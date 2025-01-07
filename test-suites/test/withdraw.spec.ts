@@ -20,7 +20,7 @@ import { ATokensClient } from "../clients/aTokensClient";
 import { UnderlyingTokensClient } from "../clients/underlyingTokensClient";
 import { PoolClient } from "../clients/poolClient";
 
-const aptosProvider = new AptosProvider();
+const aptosProvider = AptosProvider.fromEnvs();
 let coreClient: CoreClient;
 let aTokensClient: ATokensClient;
 let underlyingTokensClient: UnderlyingTokensClient;

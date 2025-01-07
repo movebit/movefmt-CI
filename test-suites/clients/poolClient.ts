@@ -1,20 +1,15 @@
 import { AccountAddress, CommittedTransactionResponse } from "@aptos-labs/ts-sdk";
-import { BigNumber } from "ethers";
+import { BigNumber } from "@ethersproject/bignumber";
 import { AptosContractWrapperBaseClass } from "./baseClass";
 import {
-  CalculateInterestRatesFuncAddr,
   GetATokenTotalSupplyFuncAddr,
   GetAllATokensFuncAddr,
   GetAllReservesTokensFuncAddr,
   GetAllVariableTokensFuncAddr,
-  GetBaseVariableBorrowRateFuncAddr,
   GetDebtCeilingDecimalsFuncAddr,
   GetDebtCeilingFuncAddr,
   GetFlashLoanEnabledFuncAddr,
-  GetGetMaxExcessUsageRatioFuncAddr,
-  GetGetOptimalUsageRatioFuncAddr,
   GetLiquidationProtocolFeeTokensFuncAddr,
-  GetMaxVariableBorrowRateFuncAddr,
   GetPausedFuncAddr,
   GetReserveCapsFuncAddr,
   GetReserveDataAndReservesCountFuncAddr,
@@ -24,8 +19,6 @@ import {
   GetTotalDebtFuncAddr,
   GetUnbackedMintCapFuncAddr,
   GetUserReserveDataFuncAddr,
-  GetVariableRateSlope1FuncAddr,
-  GetVariableRateSlope2FuncAddr,
   PoolConfiguratorInitReservesFuncAddr,
   PoolConfiguratorConfigureReserveAsCollateralFuncAddr,
   PoolConfiguratorDropReserveFuncAddr,
@@ -75,8 +68,6 @@ import {
   PoolSetBridgeProtocolFeeFuncAddr,
   PoolSetFlashloanPremiumsFuncAddr,
   PoolSetUserEmodeFuncAddr,
-  SetReserveInterestRateStrategyFuncAddr,
-  PoolConfiguratorConfigureReservesFuncAddr,
 } from "../configs/pool";
 import { mapToBN } from "../helpers/contractHelper";
 
@@ -411,33 +402,8 @@ export class PoolClient extends AptosContractWrapperBaseClass {
     ]);
   }
 
-  public async configureReserves(
-    asset: Array<AccountAddress>,
-    base_ltv: Array<BigNumber>,
-    liquidationThreshold: Array<BigNumber>,
-    liquidationBonus: Array<BigNumber>,
-    reserveFactor: Array<BigNumber>,
-    borrowCap: Array<BigNumber>,
-    supplyCap: Array<BigNumber>,
-    borrowingEnabled: Array<boolean>,
-    flashloanEnabled: Array<boolean>,
-  ): Promise<CommittedTransactionResponse> {
-    return this.sendTxAndAwaitResponse(PoolConfiguratorConfigureReservesFuncAddr, [
-      asset,
-      base_ltv.map((item) => item.toString()),
-      liquidationThreshold.map((item) => item.toString()),
-      liquidationBonus.map((item) => item.toString()),
-      reserveFactor.map((item) => item.toString()),
-      borrowCap.map((item) => item.toString()),
-      supplyCap.map((item) => item.toString()),
-      borrowingEnabled,
-      flashloanEnabled,
-    ]);
-  }
-
   public async initReserves(
     underlyingAssets: Array<AccountAddress>,
-    underlyingAssetDecimals: Array<number>,
     treasury: Array<AccountAddress>,
     aTokenName: Array<string>,
     aTokenSymbol: Array<string>,
@@ -446,7 +412,6 @@ export class PoolClient extends AptosContractWrapperBaseClass {
   ): Promise<CommittedTransactionResponse> {
     return this.sendTxAndAwaitResponse(PoolConfiguratorInitReservesFuncAddr, [
       underlyingAssets,
-      underlyingAssetDecimals,
       treasury,
       aTokenName,
       aTokenSymbol,
@@ -488,79 +453,6 @@ export class PoolClient extends AptosContractWrapperBaseClass {
   public async getUserEmode(user: AccountAddress): Promise<number> {
     const [resp] = await this.callViewMethod(PoolGetUserEmodeFuncAddr, [user]);
     return resp as number;
-  }
-
-  public async setReserveInterestRateStrategy(
-    asset: AccountAddress,
-    optimalUsageRatio: BigNumber,
-    baseVariableBorrowRate: BigNumber,
-    variableRateSlope1: BigNumber,
-    variableRateSlope2: BigNumber,
-  ): Promise<CommittedTransactionResponse> {
-    return this.sendTxAndAwaitResponse(SetReserveInterestRateStrategyFuncAddr, [
-      asset,
-      optimalUsageRatio.toString(),
-      baseVariableBorrowRate.toString(),
-      variableRateSlope1.toString(),
-      variableRateSlope2.toString(),
-    ]);
-  }
-
-  public async getOptimalUsageRatio(asset: AccountAddress): Promise<BigNumber> {
-    const [resp] = (await this.callViewMethod(GetGetOptimalUsageRatioFuncAddr, [asset])).map(mapToBN);
-    return resp;
-  }
-
-  public async getMaxExcessUsageRatio(asset: AccountAddress): Promise<BigNumber> {
-    const [resp] = (await this.callViewMethod(GetGetMaxExcessUsageRatioFuncAddr, [asset])).map(mapToBN);
-    return resp;
-  }
-
-  public async getVariableRateSlope1(asset: AccountAddress): Promise<BigNumber> {
-    const [resp] = (await this.callViewMethod(GetVariableRateSlope1FuncAddr, [asset])).map(mapToBN);
-    return resp;
-  }
-
-  public async getVariableRateSlope2(asset: AccountAddress): Promise<BigNumber> {
-    const [resp] = (await this.callViewMethod(GetVariableRateSlope2FuncAddr, [asset])).map(mapToBN);
-    return resp;
-  }
-
-  public async getBaseVariableBorrowRate(asset: AccountAddress): Promise<BigNumber> {
-    const [resp] = (await this.callViewMethod(GetBaseVariableBorrowRateFuncAddr, [asset])).map(mapToBN);
-    return resp;
-  }
-
-  public async getMaxVariableBorrowRate(asset: AccountAddress): Promise<BigNumber> {
-    const [resp] = (await this.callViewMethod(GetMaxVariableBorrowRateFuncAddr, [asset])).map(mapToBN);
-    return resp;
-  }
-
-  public async calculateInterestRates(
-    unbacked: BigNumber,
-    liquidityAdded: BigNumber,
-    liquidityTaken: BigNumber,
-    totalVariableDebt: BigNumber,
-    reserveFactor: BigNumber,
-    reserve: AccountAddress,
-    atokenAddress: AccountAddress,
-  ): Promise<{ currentLiquidityRate: BigNumber; currentVariableBorrowRate: BigNumber }> {
-    const [currentLiquidityRate, currentVariableBorrowRate] = await this.callViewMethod(
-      CalculateInterestRatesFuncAddr,
-      [
-        unbacked.toString(),
-        liquidityAdded.toString(),
-        liquidityTaken.toString(),
-        totalVariableDebt.toString(),
-        reserveFactor.toString(),
-        reserve,
-        atokenAddress,
-      ],
-    );
-    return {
-      currentLiquidityRate: BigNumber.from(currentLiquidityRate),
-      currentVariableBorrowRate: BigNumber.from(currentVariableBorrowRate),
-    };
   }
 
   public async getAllReservesTokens(): Promise<Array<TokenData>> {

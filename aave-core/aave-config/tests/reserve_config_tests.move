@@ -1,44 +1,45 @@
 #[test_only]
 module aave_config::reserve_tests {
-    use aave_config::reserve::{
-        init,
-        ReserveConfigurationMap,
+    use aave_config::reserve_config::{
         get_borrow_cap,
-        get_ltv,
-        get_liquidation_threshold,
-        get_liquidation_bonus,
-        get_decimals,
-        get_frozen,
         get_borrowing_enabled,
-        get_reserve_factor,
-        get_supply_cap,
-        get_liquidation_protocol_fee,
-        get_unbacked_mint_cap,
-        get_emode_category,
-        get_flash_loan_enabled,
-        get_flags,
-        get_params,
         get_caps,
-        set_ltv,
-        set_liquidation_threshold,
-        set_liquidation_bonus,
-        set_decimals,
-        set_frozen,
-        set_borrowing_enabled,
-        set_reserve_factor,
-        set_borrow_cap,
-        set_supply_cap,
-        set_liquidation_protocol_fee,
-        set_unbacked_mint_cap,
-        set_emode_category,
-        set_flash_loan_enabled,
-        get_max_valid_reserve_factor,
-        get_max_valid_liquidation_threshold,
+        get_decimals,
+        get_emode_category,
+        get_flags,
+        get_flash_loan_enabled,
+        get_frozen,
+        get_liquidation_bonus,
+        get_liquidation_protocol_fee,
+        get_liquidation_threshold,
+        get_ltv,
         get_max_valid_decimals,
         get_max_valid_emode_category,
         get_max_valid_liquidation_protocol_fee,
-        get_max_valid_ltv
+        get_max_valid_liquidation_threshold,
+        get_max_valid_ltv,
+        get_max_valid_reserve_factor,
+        get_params,
+        get_reserve_factor,
+        get_supply_cap,
+        get_unbacked_mint_cap,
+        init,
+        ReserveConfigurationMap,
+        set_borrow_cap,
+        set_borrowing_enabled,
+        set_decimals,
+        set_emode_category,
+        set_flash_loan_enabled,
+        set_frozen,
+        set_liquidation_bonus,
+        set_liquidation_protocol_fee,
+        set_liquidation_threshold,
+        set_ltv,
+        set_reserve_factor,
+        set_supply_cap,
+        set_unbacked_mint_cap
     };
+
     //
     // Test example reference link: https://github.com/aave/aave-v3-core/blob/master/test-suites/reserve-configuration.spec.ts
     // test functions
@@ -251,12 +252,14 @@ module aave_config::reserve_tests {
         check_params(&reserve_config, ZERO, ZERO);
 
         set_reserve_factor(&mut reserve_config, get_max_valid_reserve_factor());
-        check_params(&reserve_config, ENUM_RESERVE_FACTOR, get_max_valid_reserve_factor());
+        check_params(
+            &reserve_config, ENUM_RESERVE_FACTOR, get_max_valid_reserve_factor()
+        );
     }
 
     #[test]
     // set_reserve_factor() with reserve_factor > MAX_VALID_RESERVE_FACTOR
-    #[expected_failure(abort_code = 67, location = aave_config::reserve)]
+    #[expected_failure(abort_code = 67, location = aave_config::reserve_config)]
     fun test_set_reserve_factor_expected_failure() {
         let reserve_config = init();
         check_params(&reserve_config, ZERO, ZERO);
@@ -351,7 +354,7 @@ module aave_config::reserve_tests {
 
     #[test]
     // set_ltv() with ltv > MAX_VALID_LTV (revert expected)
-    #[expected_failure(abort_code = 63, location = aave_config::reserve)]
+    #[expected_failure(abort_code = 63, location = aave_config::reserve_config)]
     fun test_set_ltv_expected_failure() {
         let reserve_config = init();
         assert!(get_ltv(&reserve_config) == ZERO, SUCCESS);
@@ -373,12 +376,12 @@ module aave_config::reserve_tests {
         check_params(
             &reserve_config,
             ENUM_LIQUIDATION_THRESHOLD,
-            get_max_valid_liquidation_threshold(),
+            get_max_valid_liquidation_threshold()
         );
         assert!(
             get_liquidation_threshold(&reserve_config)
                 == get_max_valid_liquidation_threshold(),
-            SUCCESS,
+            SUCCESS
         );
 
         set_liquidation_threshold(&mut reserve_config, ZERO);
@@ -388,7 +391,7 @@ module aave_config::reserve_tests {
 
     #[test]
     // set_liquidation_threshold() with threshold > MAX_VALID_LIQUIDATION_THRESHOLD (revert expected)
-    #[expected_failure(abort_code = 64, location = aave_config::reserve)]
+    #[expected_failure(abort_code = 64, location = aave_config::reserve_config)]
     fun test_set_liquidation_threshold_expected_failure() {
         let reserve_config = init();
         assert!(get_liquidation_threshold(&reserve_config) == ZERO, SUCCESS);
@@ -417,7 +420,7 @@ module aave_config::reserve_tests {
 
     #[test]
     // set_decimals() with decimals > MAX_VALID_DECIMALS (revert expected)
-    #[expected_failure(abort_code = 66, location = aave_config::reserve)]
+    #[expected_failure(abort_code = 66, location = aave_config::reserve_config)]
     fun test_set_decimals_expected_failure() {
         let reserve_config = init();
         assert!(get_decimals(&reserve_config) == ZERO, SUCCESS);
@@ -434,7 +437,8 @@ module aave_config::reserve_tests {
 
         set_emode_category(&mut reserve_config, get_max_valid_emode_category());
         assert!(
-            get_emode_category(&reserve_config) == get_max_valid_emode_category(), SUCCESS
+            get_emode_category(&reserve_config) == get_max_valid_emode_category(),
+            SUCCESS
         );
 
         set_emode_category(&mut reserve_config, ZERO);
@@ -443,7 +447,7 @@ module aave_config::reserve_tests {
 
     #[test]
     // set_emode_category() with category_id > MAX_VALID_EMODE_CATEGORY (revert expected)
-    #[expected_failure(abort_code = 71, location = aave_config::reserve)]
+    #[expected_failure(abort_code = 71, location = aave_config::reserve_config)]
     fun test_set_emode_category_expected_failure() {
         let reserve_config = init();
         assert!(get_emode_category(&reserve_config) == ZERO, SUCCESS);
@@ -464,13 +468,13 @@ module aave_config::reserve_tests {
         assert!(
             get_liquidation_protocol_fee(&reserve_config)
                 == get_max_valid_liquidation_protocol_fee(),
-            SUCCESS,
+            SUCCESS
         );
     }
 
     #[test]
     // setLiquidationProtocolFee() with liquidationProtocolFee > MAX_VALID_LIQUIDATION_PROTOCOL_FEE (revert expected)
-    #[expected_failure(abort_code = 70, location = aave_config::reserve)]
+    #[expected_failure(abort_code = 70, location = aave_config::reserve_config)]
     fun test_set_liquidation_protocol_fee_expected_failure() {
         let reserve_config = init();
         assert!(get_liquidation_protocol_fee(&reserve_config) == ZERO, SUCCESS);

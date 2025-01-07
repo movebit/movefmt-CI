@@ -13,7 +13,7 @@ module aave_pool::standard_token_tests {
         mint_to_primary_stores,
         set_primary_stores_frozen_status,
         transfer_between_primary_stores,
-        withdraw_from_primary_stores,
+        withdraw_from_primary_stores
     };
 
     const TEST_SUCCESS: u64 = 1;
@@ -31,7 +31,7 @@ module aave_pool::standard_token_tests {
             utf8(b"http://example.com"), /* project */
             vector[true, true, true],
             @0x123,
-            false,
+            false
         );
         let metadata_address =
             object::create_object_address(&signer::address_of(creator), test_symbol);
@@ -39,7 +39,7 @@ module aave_pool::standard_token_tests {
     }
 
     #[test(creator = @aave_pool)]
-    fun test_basic_flow(creator: &signer,) {
+    fun test_basic_flow(creator: &signer) {
         let metadata = create_test_mfa(creator);
         let creator_address = signer::address_of(creator);
         let aaron_address = @0x111;
@@ -48,10 +48,11 @@ module aave_pool::standard_token_tests {
             creator,
             metadata,
             vector[creator_address, aaron_address],
-            vector[100, 50],
+            vector[100, 50]
         );
         assert!(
-            primary_fungible_store::balance(creator_address, metadata) == 100, TEST_SUCCESS
+            primary_fungible_store::balance(creator_address, metadata) == 100,
+            TEST_SUCCESS
         );
         assert!(
             primary_fungible_store::balance(aaron_address, metadata) == 50, TEST_SUCCESS
@@ -61,22 +62,25 @@ module aave_pool::standard_token_tests {
             creator,
             metadata,
             vector[creator_address, aaron_address],
-            true,
+            true
         );
         assert!(
             primary_fungible_store::is_frozen(creator_address, metadata), TEST_SUCCESS
         );
-        assert!(primary_fungible_store::is_frozen(aaron_address, metadata), TEST_SUCCESS);
+        assert!(
+            primary_fungible_store::is_frozen(aaron_address, metadata), TEST_SUCCESS
+        );
 
         transfer_between_primary_stores(
             creator,
             metadata,
             vector[creator_address, aaron_address],
             vector[aaron_address, creator_address],
-            vector[10, 5],
+            vector[10, 5]
         );
         assert!(
-            primary_fungible_store::balance(creator_address, metadata) == 95, TEST_SUCCESS
+            primary_fungible_store::balance(creator_address, metadata) == 95,
+            TEST_SUCCESS
         );
         assert!(
             primary_fungible_store::balance(aaron_address, metadata) == 55, TEST_SUCCESS
@@ -86,26 +90,29 @@ module aave_pool::standard_token_tests {
             creator,
             metadata,
             vector[creator_address, aaron_address],
-            false,
+            false
         );
         assert!(
-            !primary_fungible_store::is_frozen(creator_address, metadata), TEST_SUCCESS
+            !primary_fungible_store::is_frozen(creator_address, metadata),
+            TEST_SUCCESS
         );
-        assert!(!primary_fungible_store::is_frozen(aaron_address, metadata), TEST_SUCCESS);
+        assert!(
+            !primary_fungible_store::is_frozen(aaron_address, metadata), TEST_SUCCESS
+        );
 
         let fa =
             withdraw_from_primary_stores(
                 creator,
                 metadata,
                 vector[creator_address, aaron_address],
-                vector[25, 15],
+                vector[25, 15]
             );
         assert!(fungible_asset::amount(&fa) == 40, TEST_SUCCESS);
         deposit_to_primary_stores(
             creator,
             &mut fa,
             vector[creator_address, aaron_address],
-            vector[30, 10],
+            vector[30, 10]
         );
         fungible_asset::destroy_zero(fa);
 
@@ -113,10 +120,11 @@ module aave_pool::standard_token_tests {
             creator,
             metadata,
             vector[creator_address, aaron_address],
-            vector[100, 50],
+            vector[100, 50]
         );
         assert!(
-            primary_fungible_store::balance(creator_address, metadata) == 0, TEST_SUCCESS
+            primary_fungible_store::balance(creator_address, metadata) == 0,
+            TEST_SUCCESS
         );
         assert!(
             primary_fungible_store::balance(aaron_address, metadata) == 0, TEST_SUCCESS
@@ -128,6 +136,11 @@ module aave_pool::standard_token_tests {
     fun test_permission_denied(creator: &signer, aaron: &signer) {
         let metadata = create_test_mfa(creator);
         let creator_address = signer::address_of(creator);
-        mint_to_primary_stores(aaron, metadata, vector[creator_address], vector[100]);
+        mint_to_primary_stores(
+            aaron,
+            metadata,
+            vector[creator_address],
+            vector[100]
+        );
     }
 }

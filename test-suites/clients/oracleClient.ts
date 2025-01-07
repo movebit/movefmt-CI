@@ -1,42 +1,59 @@
 import { AccountAddress, CommittedTransactionResponse } from "@aptos-labs/ts-sdk";
-import { BigNumber } from "ethers";
+import { BigNumber } from "@ethersproject/bignumber";
 import { AptosContractWrapperBaseClass } from "./baseClass";
 import { mapToBN } from "../helpers/contractHelper";
 import {
   GetAssetPriceFuncAddr,
-  GetGracePeriodFuncAddr,
-  IsBorrowAllowedFuncAddr,
-  IsLiquidationAllowedFuncAddr,
-  SetAssetPriceFuncAddr,
-  SetGracePeriodFuncAddr,
+  GetAssetsPricesFuncAddr,
+  SetAssetFeedIdFuncAddr,
+  BatchSetAssetFeedIdsFuncAddr,
+  RemoveAssetFeedIdFuncAddr,
+  RemoveAssetFeedIdsFuncAddr,
+  GetOracleResourceAccountFuncAddr,
+  GetOracleAddressFuncAddr,
 } from "../configs/oracle";
 
 export class OracleClient extends AptosContractWrapperBaseClass {
-  public async setAssetPrice(asset: AccountAddress, price: BigNumber): Promise<CommittedTransactionResponse> {
-    return this.sendTxAndAwaitResponse(SetAssetPriceFuncAddr, [asset, price.toString()]);
-  }
 
   public async getAssetPrice(asset: AccountAddress): Promise<BigNumber> {
     const [resp] = (await this.callViewMethod(GetAssetPriceFuncAddr, [asset])).map(mapToBN);
     return resp;
   }
 
-  public async isBorrowAllowed(): Promise<boolean> {
-    const [resp] = await this.callViewMethod(IsBorrowAllowedFuncAddr, []);
-    return resp as boolean;
+  public async getAssetsPrices(assets: Array<AccountAddress>): Promise<Array<BigNumber>> {
+    return ((await this.callViewMethod(GetAssetsPricesFuncAddr, [assets])) as Array<any>).map((item) =>
+      mapToBN(item)
+    )
   }
 
-  public async isLiquidationAllowed(): Promise<boolean> {
-    const [resp] = await this.callViewMethod(IsLiquidationAllowedFuncAddr, []);
-    return resp as boolean;
+  public async setAssetFeedId(asset: AccountAddress, feedId: Uint8Array): Promise<CommittedTransactionResponse> {
+    return this.sendTxAndAwaitResponse(SetAssetFeedIdFuncAddr, [asset, feedId]);
   }
 
-  public async setGracePeriod(newGracePeriod: BigNumber): Promise<CommittedTransactionResponse> {
-    return this.sendTxAndAwaitResponse(SetGracePeriodFuncAddr, [newGracePeriod.toString()]);
+  public async batchSetAssetFeedIds(assets: Array<AccountAddress>, feedIds: Array<Uint8Array>): Promise<CommittedTransactionResponse> {
+    return this.sendTxAndAwaitResponse(BatchSetAssetFeedIdsFuncAddr, [assets, feedIds]);
   }
 
-  public async getGracePeriod(): Promise<BigNumber> {
-    const [resp] = (await this.callViewMethod(GetGracePeriodFuncAddr, [])).map(mapToBN);
+  public async removeAssetFeedId(asset: AccountAddress): Promise<CommittedTransactionResponse> {
+    return this.sendTxAndAwaitResponse(RemoveAssetFeedIdFuncAddr, [asset]);
+  }
+
+  public async batchRemoveAssetFeedIds(assets: Array<AccountAddress>): Promise<CommittedTransactionResponse> {
+    return this.sendTxAndAwaitResponse(RemoveAssetFeedIdsFuncAddr, [assets]);
+  }
+
+  public async getOracleResourceAccount(): Promise<AccountAddress> {
+    const [resp] = (await this.callViewMethod(GetOracleResourceAccountFuncAddr, [])).map((item) =>
+      AccountAddress.fromString(item as string),
+    );
     return resp;
   }
+
+  public async getOracleAddress(): Promise<AccountAddress> {
+    const [resp] = (await this.callViewMethod(GetOracleAddressFuncAddr, [])).map((item) =>
+      AccountAddress.fromString(item as string),
+    );
+    return resp;
+  }
+
 }

@@ -27,7 +27,7 @@ module aave_pool::collector {
         // this smart table only keeps track of objects references (does not store them)
         fungible_assets: SmartTable<Object<Metadata>, Object<FungibleStore>>,
         extend_ref: ObjExtendRef,
-        transfer_ref: ObjectTransferRef,
+        transfer_ref: ObjectTransferRef
     }
 
     fun is_funds_admin(account: address) {
@@ -52,8 +52,8 @@ module aave_pool::collector {
             CollectorData {
                 fungible_assets: smart_table::new<Object<Metadata>, Object<FungibleStore>>(),
                 transfer_ref: object::generate_transfer_ref(state_object_constructor_ref),
-                extend_ref: object::generate_extend_ref(state_object_constructor_ref),
-            },
+                extend_ref: object::generate_extend_ref(state_object_constructor_ref)
+            }
         );
     }
 
@@ -107,7 +107,7 @@ module aave_pool::collector {
             smart_table::upsert(
                 &mut collector_data.fungible_assets,
                 asset_metadata,
-                collector_fungible_store,
+                collector_fungible_store
             );
         } else {
             let collector_fungible_store =
@@ -117,7 +117,10 @@ module aave_pool::collector {
     }
 
     public fun withdraw(
-        sender: &signer, asset_metadata: Object<Metadata>, receiver: address, amount: u64
+        sender: &signer,
+        asset_metadata: Object<Metadata>,
+        receiver: address,
+        amount: u64
     ) acquires CollectorData {
         // check sender is the fund admin
         is_funds_admin(signer::address_of(sender));
@@ -141,7 +144,7 @@ module aave_pool::collector {
                 &collector_fungible_store_signer,
                 *collector_fungible_store,
                 receiver_fungible_store,
-                amount,
+                amount
             );
         }
     }

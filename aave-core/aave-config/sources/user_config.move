@@ -1,10 +1,10 @@
 /// @title UserConfiguration library
 /// @author Aave
 /// @notice Implements the bitmap logic to handle the user configuration
-module aave_config::user {
-    use aave_config::error as error_config;
+module aave_config::user_config {
+    use aave_config::error_config;
     use aave_config::helper;
-    use aave_config::reserve as reserve_config;
+    use aave_config::reserve_config;
 
     const BORROWING_MASK: u256 =
         0x5555555555555555555555555555555555555555555555555555555555555555;
@@ -32,7 +32,7 @@ module aave_config::user {
         /// @dev Bitmap of the users collaterals and borrows. It is divided in pairs of bits, one pair per asset.
         /// The first bit indicates if an asset is used as collateral by the user, the second whether an
         /// asset is borrowed by the user.
-        data: u256,
+        data: u256
     }
 
     /// @notice Initializes the user configuration map
@@ -83,7 +83,7 @@ module aave_config::user {
     ) {
         assert!(
             reserve_index < (reserve_config::get_max_reserves_count() as u256),
-            error_config::get_einvalid_reserve_index(),
+            error_config::get_einvalid_reserve_index()
         );
         let bit = 1 << ((reserve_index << 1) as u8);
         if (borrowing) {
@@ -98,11 +98,11 @@ module aave_config::user {
     /// @param reserve_index The index of the reserve in the bitmap
     /// @param using_as_collateral True if the user is using the reserve as collateral, false otherwise
     public fun set_using_as_collateral(
-        self: &mut UserConfigurationMap, reserve_index: u256, using_as_collateral: bool,
+        self: &mut UserConfigurationMap, reserve_index: u256, using_as_collateral: bool
     ) {
         assert!(
             reserve_index < (reserve_config::get_max_reserves_count() as u256),
-            error_config::get_einvalid_reserve_index(),
+            error_config::get_einvalid_reserve_index()
         );
         let bit: u256 = 1 << (((reserve_index << 1) + 1) as u8);
         if (using_as_collateral) {
@@ -121,7 +121,7 @@ module aave_config::user {
     ): bool {
         assert!(
             reserve_index < (reserve_config::get_max_reserves_count() as u256),
-            error_config::get_einvalid_reserve_index(),
+            error_config::get_einvalid_reserve_index()
         );
         (self.data >> ((reserve_index << 1) as u8))
         & 3 != 0
@@ -136,7 +136,7 @@ module aave_config::user {
     ): bool {
         assert!(
             reserve_index < (reserve_config::get_max_reserves_count() as u256),
-            error_config::get_einvalid_reserve_index(),
+            error_config::get_einvalid_reserve_index()
         );
         (self.data >> ((reserve_index << 1) as u8))
         & 1 != 0
@@ -151,7 +151,7 @@ module aave_config::user {
     ): bool {
         assert!(
             reserve_index < (reserve_config::get_max_reserves_count() as u256),
-            error_config::get_einvalid_reserve_index(),
+            error_config::get_einvalid_reserve_index()
         );
         (self.data >> ((reserve_index << 1) as u8) + 1)
         & 1 != 0

@@ -2,8 +2,8 @@
 // MATH
 // ----------------
 
-import { BigNumber } from "ethers";
-import { parseUnits } from "ethers/lib/utils";
+import { BigNumber } from "@ethersproject/bignumber";
+import { parseUnits } from "ethers";
 
 export const PERCENTAGE_FACTOR = "10000";
 export const HALF_PERCENTAGE = BigNumber.from(PERCENTAGE_FACTOR).div(2).toString();

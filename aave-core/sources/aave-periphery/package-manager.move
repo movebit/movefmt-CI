@@ -1,37 +1,58 @@
 module aave_pool::package_manager {
     use aptos_framework::account::{Self, SignerCapability};
-    use aptos_framework::resource_account;
+    use std::string::{Self, String};
     use aptos_std::smart_table::{Self, SmartTable};
-    use std::string::String;
+    use aptos_framework::object::Self;
 
     friend aave_pool::coin_wrapper;
+
+    const PACKAGE_MANAGER: vector<u8> = b"PACKAGE_MANAGER";
 
     /// Stores permission config such as SignerCapability for controlling the resource account.
     struct PermissionConfig has key {
         /// Required to obtain the resource account signer.
         signer_cap: SignerCapability,
         /// Track the addresses created by the modules in this package.
-        addresses: SmartTable<String, address>,
+        addresses: SmartTable<String, address>
     }
 
     /// Initialize PermissionConfig to establish control over the resource account.
     /// This function is invoked only when this package is deployed the first time.
     fun initialize(sender: &signer) {
-        let signer_cap =
-            resource_account::retrieve_resource_account_cap(sender, @deployer_pm);
-        initialize_helper(sender, signer_cap);
+        let state_object_constructor_ref =
+            &object::create_named_object(sender, PACKAGE_MANAGER);
+        let state_object_signer = &object::generate_signer(state_object_constructor_ref);
+        let seed = *string::bytes(&string::utf8(PACKAGE_MANAGER));
+        let (_resource_signer, signer_cap) =
+            account::create_resource_account(sender, seed);
+
+        initialize_helper(state_object_signer, signer_cap);
+    }
+
+    #[view]
+    public fun package_manager_address(): address {
+        object::create_object_address(&@aave_pool, PACKAGE_MANAGER)
+    }
+
+    fun get_resource_account_signer(): signer acquires PermissionConfig {
+        let oracle_data = borrow_global<PermissionConfig>(package_manager_address());
+        account::create_signer_with_capability(&oracle_data.signer_cap)
     }
 
     fun initialize_helper(sender: &signer, signer_cap: SignerCapability) {
         move_to(
             sender,
-            PermissionConfig { addresses: smart_table::new<String, address>(), signer_cap, },
+            PermissionConfig {
+                addresses: smart_table::new<String, address>(),
+                signer_cap
+            }
         );
     }
 
     /// Can be called by friended modules to obtain the resource account signer.
     public(friend) fun get_signer(): signer acquires PermissionConfig {
-        let signer_cap = &borrow_global<PermissionConfig>(@resource_pm).signer_cap;
+        let signer_cap =
+            &borrow_global<PermissionConfig>(package_manager_address()).signer_cap;
         account::create_signer_with_capability(signer_cap)
     }
 
@@ -42,7 +63,8 @@ module aave_pool::package_manager {
 
     /// Can be called by friended modules to keep track of a system address.
     public(friend) fun add_address(name: String, object: address) acquires PermissionConfig {
-        let addresses = &mut borrow_global_mut<PermissionConfig>(@resource_pm).addresses;
+        let addresses =
+            &mut borrow_global_mut<PermissionConfig>(package_manager_address()).addresses;
         smart_table::add(addresses, name, object);
     }
 
@@ -56,7 +78,8 @@ module aave_pool::package_manager {
     }
 
     public(friend) fun get_address(name: String): address acquires PermissionConfig {
-        let addresses = &borrow_global<PermissionConfig>(@resource_pm).addresses;
+        let addresses =
+            &borrow_global<PermissionConfig>(package_manager_address()).addresses;
         *smart_table::borrow(addresses, name)
     }
 
@@ -66,7 +89,7 @@ module aave_pool::package_manager {
     }
 
     inline fun safe_permission_config(): &PermissionConfig acquires PermissionConfig {
-        borrow_global<PermissionConfig>(@resource_pm)
+        borrow_global<PermissionConfig>(package_manager_address())
     }
 
     #[test_only]

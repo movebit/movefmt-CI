@@ -9,8 +9,7 @@ module aave_pool::pool_data_provider_tests {
     use aptos_framework::account;
     use aave_acl::acl_manage;
     use aave_math::wad_ray_math;
-    use aave_mock_oracle::oracle::{Self};
-    use aave_pool::default_reserve_interest_rate_strategy;
+    use aave_rate::default_reserve_interest_rate_strategy;
     use aave_pool::a_token_factory::Self;
     use aave_pool::token_base;
     use aave_pool::variable_debt_token_factory::Self;
@@ -25,13 +24,27 @@ module aave_pool::pool_data_provider_tests {
 
     const TEST_ASSETS_COUNT: u8 = 3;
 
-    #[test(aave_pool = @aave_pool, aave_role_super_admin = @aave_acl, aave_std = @std, mock_oracle = @aave_mock_oracle, underlying_tokens_admin = @underlying_tokens,)]
+    #[
+        test(
+            aave_pool = @aave_pool,
+            aave_role_super_admin = @aave_acl,
+            aave_std = @std,
+            aave_oracle = @aave_oracle,
+            publisher = @data_feeds,
+            platform = @platform,
+            underlying_tokens_admin = @underlying_tokens,
+            aave_rate = @aave_rate
+        )
+    ]
     fun test_get_all_exposed_tokens(
         aave_pool: &signer,
         aave_role_super_admin: &signer,
         aave_std: &signer,
-        mock_oracle: &signer,
+        aave_oracle: &signer,
+        publisher: &signer,
+        platform: &signer,
         underlying_tokens_admin: &signer,
+        aave_rate: &signer
     ) {
         // create test accounts
         account::create_account_for_test(signer::address_of(aave_pool));
@@ -48,14 +61,25 @@ module aave_pool::pool_data_provider_tests {
         // init token base (a tokens and var tokens)
         token_base::test_init_module(aave_pool);
 
-        // init underlying tokens
-        mock_underlying_token_factory::test_init_module(aave_pool);
+        // init a token factory
+        aave_pool::a_token_factory::test_init_module(aave_pool);
+
+        // init debt token factory
+        aave_pool::variable_debt_token_factory::test_init_module(aave_pool);
+
+        // init underlyings token factory
+        aave_pool::mock_underlying_token_factory::test_init_module(aave_pool);
 
         // add the test events feature flag
         change_feature_flags_for_testing(aave_std, vector[26], vector[]);
 
-        // init oracle module
-        oracle::test_init_oracle(mock_oracle);
+        // init the oracle module
+        aave_oracle::oracle_tests::config_oracle(aave_oracle, publisher, platform);
+
+        // init rates - default strategy
+        aave_rate::default_reserve_interest_rate_strategy::init_interest_rate_strategy(
+            aave_rate
+        );
 
         // init pool_configurator & reserves module
         pool_configurator::test_init_module(aave_pool);
@@ -84,7 +108,7 @@ module aave_pool::pool_data_provider_tests {
                 symbol,
                 decimals,
                 utf8(b""),
-                utf8(b""),
+                utf8(b"")
             );
 
             let underlying_token_address =
@@ -101,7 +125,7 @@ module aave_pool::pool_data_provider_tests {
                 optimal_usage_ratio,
                 base_variable_borrow_rate,
                 variable_rate_slope1,
-                variable_rate_slope2,
+                variable_rate_slope2
             );
 
             vector::push_back(&mut underlying_assets, underlying_token_address);
@@ -114,19 +138,20 @@ module aave_pool::pool_data_provider_tests {
             vector::push_back(
                 &mut var_tokens_names, string_utils::format1(&b"APTOS_VAR_TOKEN_{}", i)
             );
-            vector::push_back(&mut var_tokens_symbols, string_utils::format1(&b"V_{}", i));
+            vector::push_back(
+                &mut var_tokens_symbols, string_utils::format1(&b"V_{}", i)
+            );
         };
 
         // create pool reserves
         pool_configurator::init_reserves(
             aave_pool,
             underlying_assets,
-            underlying_asset_decimals,
             treasuries,
             atokens_names,
             atokens_symbols,
             var_tokens_names,
-            var_tokens_symbols,
+            var_tokens_symbols
         );
         // check emitted events
         let emitted_events = emitted_events<ReserveInitialized>();
@@ -141,7 +166,7 @@ module aave_pool::pool_data_provider_tests {
         let all_reserve_tokens = pool_data_provider::get_all_reserves_tokens();
         assert!(
             vector::length(&underlying_assets) == vector::length(&all_reserve_tokens),
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
         for (i in 0..vector::length(&underlying_assets)) {
             let underlying_token_data = vector::borrow(&all_reserve_tokens, i);
@@ -154,18 +179,19 @@ module aave_pool::pool_data_provider_tests {
                     == mock_underlying_token_factory::token_address(
                         underlying_token_symbol
                     ),
-                TEST_SUCCESS,
+                TEST_SUCCESS
             );
             assert!(
-                *vector::borrow(&underlying_assets, i) == underlying_token_address,
-                TEST_SUCCESS,
+                vector::contains(&underlying_assets, &underlying_token_address),
+                TEST_SUCCESS
             );
         };
 
         // get all a tokens
         let all_a_tokens = pool_data_provider::get_all_a_tokens();
         assert!(
-            vector::length(&atokens_names) == vector::length(&all_a_tokens), TEST_SUCCESS
+            vector::length(&atokens_names) == vector::length(&all_a_tokens),
+            TEST_SUCCESS
         );
         for (i in 0..vector::length(&atokens_symbols)) {
             let a_token_data = vector::borrow(&all_a_tokens, i);
@@ -178,7 +204,7 @@ module aave_pool::pool_data_provider_tests {
                     == a_token_factory::token_address(
                         signer::address_of(aave_pool), a_token_symbol
                     ),
-                TEST_SUCCESS,
+                TEST_SUCCESS
             );
         };
 
@@ -186,7 +212,7 @@ module aave_pool::pool_data_provider_tests {
         let all_var_tokens = pool_data_provider::get_all_var_tokens();
         assert!(
             vector::length(&var_tokens_names) == vector::length(&all_var_tokens),
-            TEST_SUCCESS,
+            TEST_SUCCESS
         );
         for (i in 0..vector::length(&var_tokens_names)) {
             let var_token_data = vector::borrow(&all_var_tokens, i);
@@ -199,7 +225,7 @@ module aave_pool::pool_data_provider_tests {
                     == variable_debt_token_factory::token_address(
                         signer::address_of(aave_pool), var_token_symbol
                     ),
-                TEST_SUCCESS,
+                TEST_SUCCESS
             );
         };
     }

@@ -19,26 +19,55 @@ on:
         options:
           - 'true'
           - 'false'
-
-env:
-  CARGO_TERM_COLOR: always
-  GITHUB_ACTIONS: true
-  APTOS_NETWORK: testnet
-  ARTIFACTS_LEVEL: none
-  DEFAULT_FUND_AMOUNT: 40000000
-  PYTH_HERMES_URL: https://hermes-beta.pyth.network
-  PYTH_CONTRACT_ACCOUNT: 0x0000000000000000000000000000000000000000000000000000000000000000
-  PYTH_DEPLOYER_ACCOUNT: 0x0000000000000000000000000000000000000000000000000000000000000000
-  PYTH_WORMHOLE: 0x0000000000000000000000000000000000000000000000000000000000000000
+      upgradeContracts:
+        description: 'Upgrade Contracts'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 jobs:
   testnet-deployment:
     name: Deploy protocol on Testnet
-    runs-on: ubuntu-latest
+    runs-on: Larger-Github-Runners
     timeout-minutes: 60
     env:
-      DEFAULT_FUNDER_PRIVATE_KEY: ${{ secrets.GH_DEFAULT_FUNDER_PRIVATE_KEY }}
+      # common settings
+      CARGO_TERM_COLOR: always
+      GITHUB_ACTIONS: true
+      ARTIFACTS_LEVEL: all
+      DEFAULT_FUND_AMOUNT: 40000000
       APTOS_NETWORK: ${{ github.event.inputs.network }}
+      UPGRADE_CONTRACTS: ${{ github.event.inputs.upgradeContracts }}
+
+      # external profiles
+      CHAINLINK_DATA_FEEDS: ${{ secrets.GH_CHAINLINK_DATA_FEEDS }}
+      CHAINLINK_PLATFORM: ${{ secrets.GH_CHAINLINK_PLATFORM }}
+
+      # aave profiles
+      AAVE_ACL_PRIVATE_KEY: ${{ secrets.GH_AAVE_ACL_PRIVATE_KEY }}
+      AAVE_CONFIG_PRIVATE_KEY: ${{ secrets.GH_AAVE_CONFIG_PRIVATE_KEY }}
+      AAVE_MATH_PRIVATE_KEY: ${{ secrets.GH_AAVE_MATH_PRIVATE_KEY }}
+      AAVE_RATE_PRIVATE_KEY: ${{ secrets.GH_AAVE_RATE_PRIVATE_KEY }}
+      AAVE_ORACLE_PRIVATE_KEY: ${{ secrets.GH_AAVE_ORACLE_PRIVATE_KEY }}
+      AAVE_POOL_PRIVATE_KEY: ${{ secrets.GH_AAVE_POOL_PRIVATE_KEY }}
+      A_TOKENS_PRIVATE_KEY: ${{ secrets.GH_A_TOKENS_PRIVATE_KEY }}
+      UNDERLYING_TOKENS_PRIVATE_KEY: ${{ secrets.GH_UNDERLYING_TOKENS_PRIVATE_KEY }}
+      VARIABLE_TOKENS_PRIVATE_KEY: ${{ secrets.GH_VARIABLE_TOKENS_PRIVATE_KEY }}
+      AAVE_LARGE_PACKAGES_PRIVATE_KEY: ${{ secrets.GH_AAVE_LARGE_PACKAGES_PRIVATE_KEY }}
+      AAVE_DATA_PRIVATE_KEY: ${{ secrets.GH_AAVE_DATA_PRIVATE_KEY }}
+      DEFAULT_FUNDER_PRIVATE_KEY: ${{ secrets.GH_DEFAULT_FUNDER_PRIVATE_KEY }}
+
+      # test profiles
+      TEST_ACCOUNT_0_PRIVATE_KEY: ${{ secrets.GH_TEST_ACCOUNT_0_PRIVATE_KEY }}
+      TEST_ACCOUNT_1_PRIVATE_KEY: ${{ secrets.GH_TEST_ACCOUNT_1_PRIVATE_KEY }}
+      TEST_ACCOUNT_2_PRIVATE_KEY: ${{ secrets.GH_TEST_ACCOUNT_2_PRIVATE_KEY }}
+      TEST_ACCOUNT_3_PRIVATE_KEY: ${{ secrets.GH_TEST_ACCOUNT_3_PRIVATE_KEY }}
+      TEST_ACCOUNT_4_PRIVATE_KEY: ${{ secrets.GH_TEST_ACCOUNT_4_PRIVATE_KEY }}
+      TEST_ACCOUNT_5_PRIVATE_KEY: ${{ secrets.GH_TEST_ACCOUNT_5_PRIVATE_KEY }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -53,46 +82,6 @@ jobs:
         run: |
           curl -fsSL "https://aptos.dev/scripts/install_cli.py" | python3
           aptos --version  # Verify that Aptos CLI is installed
-
-      - name: Checkout aptos-core repository
-        run: |
-          git clone https://github.com/0xjunha/aptos-core.git
-          cd aptos-core
-          git checkout large_packages_e2e
-
-      - name: Cache Cargo registry
-        uses: actions/cache@v4
-        id: cargo-cache
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('aptos-core/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-registry-
-
-      - name: Cache Cargo target directory
-        uses: actions/cache@v4
-        id: cargo-target-cache
-        with:
-          path: aptos-core/target
-          key: ${{ runner.os }}-cargo-target-${{ hashFiles('aptos-core/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-target-
-
-      - name: Build custom Aptos CLI
-        run: |
-          cd aptos-core
-          sh scripts/cli/build_cli_release.sh
-
-      - name: Replace original Aptos CLI
-        run: |
-          cd aptos-core
-          zip_file=$(ls aptos-cli-*.zip)
-          unzip $zip_file
-          sudo mv /home/runner/.local/bin/aptos /home/runner/.local/bin/aptos_backup || true
-          sudo mv aptos /home/runner/.local/bin/aptos
-          aptos --version  # Verify that the new Aptos CLI is installed
 
       - name: Set Aptos Workspace Config
         run: make set-workspace-config
@@ -156,10 +145,10 @@ jobs:
 
       - name: Initialize Data
         if: ${{ github.event.inputs.initData == 'true' }}
-        run: pnpm run init-data
+        run: pnpm run deploy:init-data
         working-directory: test-suites
 
       - name: Running Core Operations
         if: ${{ github.event.inputs.initData == 'true' }}
-        run: pnpm run core-operations
+        run: pnpm run deploy:core-operations
         working-directory: test-suites

@@ -5,11 +5,10 @@ module aave_pool::pool_configurator {
     use aptos_framework::event;
 
     use aave_acl::acl_manage;
-    use aave_config::error as error_config;
-    use aave_config::reserve as reserve_config;
+    use aave_config::error_config;
+    use aave_config::reserve_config;
     use aave_math::math_utils;
 
-    use aave_pool::default_reserve_interest_rate_strategy;
     use aave_pool::emode_logic;
     use aave_pool::pool;
 
@@ -77,7 +76,7 @@ module aave_pool::pool_configurator {
     /// @dev Emitted when a reserve is dropped.
     /// @param asset The address of the underlying asset of the reserve
     struct ReserveDropped has store, drop {
-        asset: address,
+        asset: address
     }
 
     #[event]
@@ -233,20 +232,20 @@ module aave_pool::pool_configurator {
     }
 
     /// @notice Initializes the pool configurator
+    /// @param account The account signer of the caller
     fun init_module(account: &signer) {
         assert!(
-            (signer::address_of(account) == @aave_pool),
-            error_config::get_ecaller_not_pool_admin(),
+            signer::address_of(account) == @aave_pool,
+            error_config::get_enot_pool_owner()
         );
+
         pool::init_pool(account);
         emode_logic::init_emode(account);
-        default_reserve_interest_rate_strategy::init_interest_rate_strategy(account);
     }
 
     /// @notice Initializes multiple reserves.
-    /// @param account The address of the caller
+    /// @param account The account signer of the caller
     /// @param underlying_asset The list of the underlying assets of the reserves
-    /// @param underlying_asset_decimals The list of the decimals of the underlying assets
     /// @param treasury The list of the treasury addresses of the reserves
     /// @param a_token_name The list of the aToken names of the reserves
     /// @param a_token_symbol The list of the aToken symbols of the reserves
@@ -256,46 +255,49 @@ module aave_pool::pool_configurator {
     public entry fun init_reserves(
         account: &signer,
         underlying_asset: vector<address>,
-        underlying_asset_decimals: vector<u8>,
         treasury: vector<address>,
         a_token_name: vector<String>,
         a_token_symbol: vector<String>,
         variable_debt_token_name: vector<String>,
-        variable_debt_token_symbol: vector<String>,
+        variable_debt_token_symbol: vector<String>
     ) {
         assert!(
             only_asset_listing_or_pool_admins(signer::address_of(account)),
-            error_config::get_ecaller_not_asset_listing_or_pool_admin(),
+            error_config::get_ecaller_not_asset_listing_or_pool_admin()
         );
+
         for (i in 0..vector::length(&underlying_asset)) {
             pool::init_reserve(
                 account,
                 *vector::borrow(&underlying_asset, i),
-                *vector::borrow(&underlying_asset_decimals, i),
                 *vector::borrow(&treasury, i),
                 *vector::borrow(&a_token_name, i),
                 *vector::borrow(&a_token_symbol, i),
                 *vector::borrow(&variable_debt_token_name, i),
-                *vector::borrow(&variable_debt_token_symbol, i),
+                *vector::borrow(&variable_debt_token_symbol, i)
             );
         };
     }
 
     /// @notice Drops a reserve entirely.
-    /// @param account The address of the caller
+    /// @dev Emits the `ReserveDropped` event
+    /// @param account The account signer of the caller
     /// @param asset The address of the reserve to drop
-    public entry fun drop_reserve(account: &signer, asset: address,) {
+    public entry fun drop_reserve(account: &signer, asset: address) {
         assert!(
             only_pool_admin(signer::address_of(account)),
-            error_config::get_ecaller_not_pool_admin(),
+            error_config::get_ecaller_not_pool_admin()
         );
         // Call the `drop_reserve` function in the `pool` module
         pool::drop_reserve(asset);
+
         event::emit(ReserveDropped { asset });
     }
 
     /// @notice Configures borrowing on a reserve.
+    /// @dev Emits the ReserveBorrowing event
     /// @dev Can only be disabled (set to false)
+    /// @param account The account signer of the caller
     /// @param asset The address of the underlying asset of the reserve
     /// @param enabled True if borrowing needs to be enabled, false otherwise
     public entry fun set_reserve_borrowing(
@@ -303,8 +305,9 @@ module aave_pool::pool_configurator {
     ) {
         assert!(
             only_risk_or_pool_admins(signer::address_of(account)),
-            error_config::get_ecaller_not_risk_or_pool_admin(),
+            error_config::get_ecaller_not_risk_or_pool_admin()
         );
+
         let reserve_config_map = pool::get_reserve_configuration(asset);
         reserve_config::set_borrowing_enabled(&mut reserve_config_map, enabled);
         pool::set_reserve_configuration(asset, reserve_config_map);
@@ -313,8 +316,10 @@ module aave_pool::pool_configurator {
     }
 
     /// @notice Configures the reserve collateralization parameters.
+    /// @dev Emits the CollateralConfigurationChanged event
     /// @dev All the values are expressed in bps. A value of 10000, results in 100.00%
     /// @dev The `liquidation_bonus` is always above 100%. A value of 105% means the liquidator will receive a 5% bonus
+    /// @param account The account signer of the caller
     /// @param asset The address of the underlying asset of the reserve
     /// @param ltv The loan to value of the asset when used as collateral
     /// @param liquidation_threshold The threshold at which loans using this asset as collateral will be considered undercollateralized
@@ -328,16 +333,23 @@ module aave_pool::pool_configurator {
     ) {
         assert!(
             only_risk_or_pool_admins(signer::address_of(account)),
-            error_config::get_ecaller_not_risk_or_pool_admin(),
+            error_config::get_ecaller_not_risk_or_pool_admin()
         );
-        assert!(ltv <= liquidation_threshold, error_config::get_einvalid_reserve_params());
+        // validation of the parameters: the LTV can
+        // only be lower or equal than the liquidation threshold
+        // (otherwise a loan against the asset would cause instantaneous liquidation)
+        assert!(
+            ltv <= liquidation_threshold, error_config::get_einvalid_reserve_params()
+        );
+
         let reserve_config_map = pool::get_reserve_configuration(asset);
+
         if (liquidation_threshold != 0) {
             //liquidation bonus must be bigger than 100.00%, otherwise the liquidator would receive less
             //collateral than needed to cover the debt
             assert!(
                 liquidation_bonus > math_utils::get_percentage_factor(),
-                error_config::get_einvalid_reserve_params(),
+                error_config::get_einvalid_reserve_params()
             );
 
             //if threshold * bonus is less than PERCENTAGE_FACTOR, it's guaranteed that at the moment
@@ -345,7 +357,7 @@ module aave_pool::pool_configurator {
             assert!(
                 math_utils::percent_mul(liquidation_threshold, liquidation_bonus)
                     <= math_utils::get_percentage_factor(),
-                error_config::get_einvalid_reserve_params(),
+                error_config::get_einvalid_reserve_params()
             );
         } else {
             assert!(liquidation_bonus == 0, error_config::get_einvalid_reserve_params());
@@ -369,11 +381,13 @@ module aave_pool::pool_configurator {
                 ltv,
                 liquidation_threshold,
                 liquidation_bonus
-            },
+            }
         )
     }
 
     /// @notice Enable or disable flashloans on a reserve
+    /// @dev Emits the ReserveFlashLoaning event
+    /// @param account The account signer of the caller
     /// @param asset The address of the underlying asset of the reserve
     /// @param enabled True if flashloans need to be enabled, false otherwise
     public entry fun set_reserve_flash_loaning(
@@ -381,7 +395,7 @@ module aave_pool::pool_configurator {
     ) {
         assert!(
             only_risk_or_pool_admins(signer::address_of(account)),
-            error_config::get_ecaller_not_risk_or_pool_admin(),
+            error_config::get_ecaller_not_risk_or_pool_admin()
         );
         let reserve_config_map = pool::get_reserve_configuration(asset);
 
@@ -392,6 +406,8 @@ module aave_pool::pool_configurator {
     }
 
     /// @notice Activate or deactivate a reserve
+    /// @dev Emits the ReserveActive event
+    /// @param account The account signer of the caller
     /// @param asset The address of the underlying asset of the reserve
     /// @param active True if the reserve needs to be active, false otherwise
     public entry fun set_reserve_active(
@@ -399,8 +415,9 @@ module aave_pool::pool_configurator {
     ) {
         assert!(
             only_pool_admin(signer::address_of(account)),
-            error_config::get_ecaller_not_pool_admin(),
+            error_config::get_ecaller_not_pool_admin()
         );
+
         if (!active) {
             check_no_suppliers(asset);
         };
@@ -414,6 +431,8 @@ module aave_pool::pool_configurator {
 
     /// @notice Freeze or unfreeze a reserve. A frozen reserve doesn't allow any new supply, borrow
     /// or rate swap but allows repayments, liquidations, rate rebalances and withdrawals.
+    /// @dev Emits the ReserveFrozen event
+    /// @param account The account signer of the caller
     /// @param asset The address of the underlying asset of the reserve
     /// @param freeze True if the reserve needs to be frozen, false otherwise
     public entry fun set_reserve_freeze(
@@ -421,7 +440,7 @@ module aave_pool::pool_configurator {
     ) {
         assert!(
             only_risk_or_pool_admins(signer::address_of(account)),
-            error_config::get_ecaller_not_risk_or_pool_admin(),
+            error_config::get_ecaller_not_risk_or_pool_admin()
         );
         let reserve_config_map = pool::get_reserve_configuration(asset);
 
@@ -436,6 +455,8 @@ module aave_pool::pool_configurator {
     /// borrowed amount will be accumulated in the isolated collateral's total debt exposure
     /// @dev Only assets of the same family (e.g. USD stablecoins) should be borrowable in isolation mode to keep
     /// consistency in the debt ceiling calculations
+    /// @dev Emits the BorrowableInIsolationChanged event
+    /// @param account The account signer of the caller
     /// @param asset The address of the underlying asset of the reserve
     /// @param borrowable True if the asset should be borrowable in isolation, false otherwise
     public entry fun set_borrowable_in_isolation(
@@ -443,7 +464,7 @@ module aave_pool::pool_configurator {
     ) {
         assert!(
             only_risk_or_pool_admins(signer::address_of(account)),
-            error_config::get_ecaller_not_risk_or_pool_admin(),
+            error_config::get_ecaller_not_risk_or_pool_admin()
         );
         let reserve_config_map = pool::get_reserve_configuration(asset);
 
@@ -455,6 +476,8 @@ module aave_pool::pool_configurator {
 
     /// @notice Pauses a reserve. A paused reserve does not allow any interaction (supply, borrow, repay,
     /// swap interest rate, liquidate, atoken transfers).
+    /// @dev Emits the ReservePaused event
+    /// @param account The account signer of the caller
     /// @param asset The address of the underlying asset of the reserve
     /// @param paused True if pausing the reserve, false if unpausing
     public entry fun set_reserve_pause(
@@ -462,8 +485,9 @@ module aave_pool::pool_configurator {
     ) {
         assert!(
             only_pool_or_emergency_admin(signer::address_of(account)),
-            error_config::get_ecaller_not_pool_or_emergency_admin(),
+            error_config::get_ecaller_not_pool_or_emergency_admin()
         );
+
         let reserve_config_map = pool::get_reserve_configuration(asset);
 
         reserve_config::set_paused(&mut reserve_config_map, paused);
@@ -473,6 +497,8 @@ module aave_pool::pool_configurator {
     }
 
     /// @notice Updates the reserve factor of a reserve.
+    /// @dev Emits the ReserveFactorChanged event
+    /// @param account The account signer of the caller
     /// @param asset The address of the underlying asset of the reserve
     /// @param new_reserve_factor The new reserve factor of the reserve
     public entry fun set_reserve_factor(
@@ -480,11 +506,12 @@ module aave_pool::pool_configurator {
     ) {
         assert!(
             only_risk_or_pool_admins(signer::address_of(account)),
-            error_config::get_ecaller_not_risk_or_pool_admin(),
+            error_config::get_ecaller_not_risk_or_pool_admin()
         );
+
         assert!(
             new_reserve_factor <= math_utils::get_percentage_factor(),
-            error_config::get_einvalid_reserve_factor(),
+            error_config::get_einvalid_reserve_factor()
         );
 
         let reserve_config_map = pool::get_reserve_configuration(asset);
@@ -498,22 +525,28 @@ module aave_pool::pool_configurator {
     }
 
     /// @notice Sets the debt ceiling for an asset.
+    /// @dev Emits the DebtCeilingChanged event
+    /// @param account The account signer of the caller
+    /// @param asset The address of the underlying asset of the reserve
     /// @param new_debt_ceiling The new debt ceiling
     public entry fun set_debt_ceiling(
         account: &signer, asset: address, new_debt_ceiling: u256
     ) {
         assert!(
             only_risk_or_pool_admins(signer::address_of(account)),
-            error_config::get_ecaller_not_risk_or_pool_admin(),
+            error_config::get_ecaller_not_risk_or_pool_admin()
         );
         let reserve_config_map = pool::get_reserve_configuration(asset);
         let old_debt_ceiling: u256 =
             reserve_config::get_debt_ceiling(&reserve_config_map);
+
         if (old_debt_ceiling == 0) {
             check_no_suppliers(asset);
         };
+
         reserve_config::set_debt_ceiling(&mut reserve_config_map, new_debt_ceiling);
         pool::set_reserve_configuration(asset, reserve_config_map);
+
         if (new_debt_ceiling == 0) {
             pool::reset_isolation_mode_total_debt(asset)
         };
@@ -522,17 +555,22 @@ module aave_pool::pool_configurator {
     }
 
     /// @notice Sets siloed borrowing for an asset
+    /// @dev Emits the SiloedBorrowingChanged event
+    /// @param account The account signer of the caller
+    /// @param asset The address of the underlying asset of the reserve
     /// @param new_siloed The new siloed borrowing state
     public entry fun set_siloed_borrowing(
         account: &signer, asset: address, new_siloed: bool
     ) {
         assert!(
             only_risk_or_pool_admins(signer::address_of(account)),
-            error_config::get_ecaller_not_risk_or_pool_admin(),
+            error_config::get_ecaller_not_risk_or_pool_admin()
         );
+
         if (new_siloed) {
             check_no_borrowers(asset);
         };
+
         let reserve_config_map = pool::get_reserve_configuration(asset);
         let old_siloed: bool = reserve_config::get_siloed_borrowing(&reserve_config_map);
         reserve_config::set_siloed_borrowing(&mut reserve_config_map, new_siloed);
@@ -544,6 +582,8 @@ module aave_pool::pool_configurator {
     }
 
     /// @notice Updates the borrow cap of a reserve.
+    /// @dev Emits the BorrowCapChanged event
+    /// @param account The account signer of the caller
     /// @param asset The address of the underlying asset of the reserve
     /// @param new_borrow_cap The new borrow cap of the reserve
     public entry fun set_borrow_cap(
@@ -551,7 +591,7 @@ module aave_pool::pool_configurator {
     ) {
         assert!(
             only_risk_or_pool_admins(signer::address_of(account)),
-            error_config::get_ecaller_not_risk_or_pool_admin(),
+            error_config::get_ecaller_not_risk_or_pool_admin()
         );
 
         let reserve_config_map = pool::get_reserve_configuration(asset);
@@ -564,6 +604,8 @@ module aave_pool::pool_configurator {
     }
 
     /// @notice Updates the supply cap of a reserve.
+    /// @dev Emits the SupplyCapChanged event
+    /// @param account The account signer of the caller
     /// @param asset The address of the underlying asset of the reserve
     /// @param new_supply_cap The new supply cap of the reserve
     public entry fun set_supply_cap(
@@ -571,7 +613,7 @@ module aave_pool::pool_configurator {
     ) {
         assert!(
             only_risk_or_pool_admins(signer::address_of(account)),
-            error_config::get_ecaller_not_risk_or_pool_admin(),
+            error_config::get_ecaller_not_risk_or_pool_admin()
         );
 
         let reserve_config_map = pool::get_reserve_configuration(asset);
@@ -584,6 +626,8 @@ module aave_pool::pool_configurator {
     }
 
     /// @notice Updates the liquidation protocol fee of reserve.
+    /// @dev Emits the LiquidationProtocolFeeChanged event
+    /// @param account The account signer of the caller
     /// @param asset The address of the underlying asset of the reserve
     /// @param new_fee The new liquidation protocol fee of the reserve, expressed in bps
     public entry fun set_liquidation_protocol_fee(
@@ -591,16 +635,16 @@ module aave_pool::pool_configurator {
     ) {
         assert!(
             only_risk_or_pool_admins(signer::address_of(account)),
-            error_config::get_ecaller_not_risk_or_pool_admin(),
+            error_config::get_ecaller_not_risk_or_pool_admin()
         );
+
         assert!(
             new_fee <= math_utils::get_percentage_factor(),
-            error_config::get_einvalid_liquidation_protocol_fee(),
+            error_config::get_einvalid_liquidation_protocol_fee()
         );
 
         let reserve_config_map = pool::get_reserve_configuration(asset);
-        let old_fee: u256 =
-            reserve_config::get_liquidation_protocol_fee(&reserve_config_map);
+        let old_fee = reserve_config::get_liquidation_protocol_fee(&reserve_config_map);
 
         reserve_config::set_liquidation_protocol_fee(&mut reserve_config_map, new_fee);
         pool::set_reserve_configuration(asset, reserve_config_map);
@@ -613,6 +657,8 @@ module aave_pool::pool_configurator {
     /// overcollateralization of the users using this category.
     /// @dev The new ltv and liquidation threshold must be greater than the base
     /// ltvs and liquidation thresholds of all assets within the eMode category
+    /// @dev Emits the EModeCategoryAdded event
+    /// @param account The account signer of the caller
     /// @param category_id The id of the category to be configured
     /// @param ltv The ltv associated with the category
     /// @param liquidation_threshold The liquidation threshold associated with the category
@@ -630,12 +676,14 @@ module aave_pool::pool_configurator {
     ) {
         assert!(
             only_risk_or_pool_admins(signer::address_of(account)),
-            error_config::get_ecaller_not_risk_or_pool_admin(),
+            error_config::get_ecaller_not_risk_or_pool_admin()
         );
+
         assert!(ltv != 0, error_config::get_einvalid_emode_category_params());
 
         assert!(
-            liquidation_threshold != 0, error_config::get_einvalid_emode_category_params()
+            liquidation_threshold != 0,
+            error_config::get_einvalid_emode_category_params()
         );
 
         // validation of the parameters: the LTV can
@@ -643,21 +691,22 @@ module aave_pool::pool_configurator {
         // (otherwise a loan against the asset would cause instantaneous liquidation)
         assert!(
             ltv <= liquidation_threshold,
-            error_config::get_einvalid_emode_category_params(),
+            error_config::get_einvalid_emode_category_params()
         );
 
         assert!(
             liquidation_bonus > (math_utils::get_percentage_factor() as u16),
-            error_config::get_einvalid_emode_category_params(),
+            error_config::get_einvalid_emode_category_params()
         );
 
         // if threshold * bonus is less than PERCENTAGE_FACTOR, it's guaranteed that at the moment
         // a loan is taken there is enough collateral available to cover the liquidation bonus
         assert!(
             math_utils::percent_mul(
-                (liquidation_threshold as u256), (liquidation_bonus as u256)
+                (liquidation_threshold as u256),
+                (liquidation_bonus as u256)
             ) <= math_utils::get_percentage_factor(),
-            error_config::get_einvalid_emode_category_params(),
+            error_config::get_einvalid_emode_category_params()
         );
 
         let reserves = pool::get_reserves_list();
@@ -665,17 +714,15 @@ module aave_pool::pool_configurator {
             let reserve_config_map =
                 pool::get_reserve_configuration(*vector::borrow(&reserves, i));
             if ((category_id as u256)
-                    == reserve_config::get_emode_category(&reserve_config_map)) {
+                == reserve_config::get_emode_category(&reserve_config_map)) {
                 assert!(
                     (ltv as u256) > reserve_config::get_ltv(&reserve_config_map),
-                    error_config::get_einvalid_emode_category_params(),
+                    error_config::get_einvalid_emode_category_params()
                 );
                 assert!(
                     (liquidation_threshold as u256)
-                        > reserve_config::get_liquidation_threshold(
-                            &reserve_config_map
-                        ),
-                    error_config::get_einvalid_emode_category_params(),
+                        > reserve_config::get_liquidation_threshold(&reserve_config_map),
+                    error_config::get_einvalid_emode_category_params()
                 );
             };
         };
@@ -686,7 +733,7 @@ module aave_pool::pool_configurator {
             liquidation_threshold,
             liquidation_bonus,
             oracle,
-            label,
+            label
         );
 
         event::emit(
@@ -697,11 +744,13 @@ module aave_pool::pool_configurator {
                 liquidation_bonus,
                 oracle,
                 label
-            },
+            }
         )
     }
 
     /// @notice Assign an efficiency mode (eMode) category to asset.
+    /// @dev Emits the EModeAssetCategoryChanged event
+    /// @param account The account signer of the caller
     /// @param asset The address of the underlying asset of the reserve
     /// @param new_category_id The new category id of the asset
     public entry fun set_asset_emode_category(
@@ -709,21 +758,24 @@ module aave_pool::pool_configurator {
     ) {
         assert!(
             only_risk_or_pool_admins(signer::address_of(account)),
-            error_config::get_ecaller_not_risk_or_pool_admin(),
+            error_config::get_ecaller_not_risk_or_pool_admin()
         );
+
         let reserve_config_map = pool::get_reserve_configuration(asset);
         if (new_category_id != 0) {
             let emode_category = emode_logic::get_emode_category_data(new_category_id);
             let liquidation_threshold =
                 emode_logic::get_emode_category_liquidation_threshold(&emode_category);
+
             assert!(
                 liquidation_threshold
                     > (
                         reserve_config::get_liquidation_threshold(&reserve_config_map) as u16
                     ),
-                error_config::get_einvalid_emode_category_assignment(),
+                error_config::get_einvalid_emode_category_assignment()
             );
         };
+
         let old_category_id = reserve_config::get_emode_category(&reserve_config_map);
         reserve_config::set_emode_category(
             &mut reserve_config_map, (new_category_id as u256)
@@ -735,11 +787,13 @@ module aave_pool::pool_configurator {
                 asset,
                 old_category_id,
                 new_category_id: (new_category_id as u256)
-            },
+            }
         )
     }
 
     /// @notice Updates the unbacked mint cap of reserve.
+    /// @dev Emits the UnbackedMintCapChanged event
+    /// @param account The account signer of the caller
     /// @param asset The address of the underlying asset of the reserve
     /// @param new_unbacked_mint_cap The new unbacked mint cap of the reserve
     public entry fun set_unbacked_mint_cap(
@@ -747,8 +801,9 @@ module aave_pool::pool_configurator {
     ) {
         assert!(
             only_risk_or_pool_admins(signer::address_of(account)),
-            error_config::get_ecaller_not_risk_or_pool_admin(),
+            error_config::get_ecaller_not_risk_or_pool_admin()
         );
+
         let reserve_config_map = pool::get_reserve_configuration(asset);
         let old_unbacked_mint_cap: u256 =
             reserve_config::get_unbacked_mint_cap(&reserve_config_map);
@@ -759,38 +814,48 @@ module aave_pool::pool_configurator {
         pool::set_reserve_configuration(asset, reserve_config_map);
 
         event::emit(
-            UnbackedMintCapChanged { asset, old_unbacked_mint_cap, new_unbacked_mint_cap },
+            UnbackedMintCapChanged { asset, old_unbacked_mint_cap, new_unbacked_mint_cap }
         )
     }
 
     /// @notice Pauses or unpauses all the protocol reserves. In the paused state all the protocol interactions
     /// are suspended.
+    /// @dev Emits the ReservePaused event for each reserve
+    /// @param account The account signer of the caller
     /// @param paused True if protocol needs to be paused, false otherwise
     public entry fun set_pool_pause(account: &signer, paused: bool) {
         assert!(
             only_emergency_admin(signer::address_of(account)),
-            error_config::get_ecaller_not_emergency_admin(),
+            error_config::get_ecaller_not_emergency_admin()
         );
+
         let reserves_address = pool::get_reserves_list();
         for (i in 0..vector::length(&reserves_address)) {
-            set_reserve_pause(account, *vector::borrow(&reserves_address, i), paused);
+            set_reserve_pause(
+                account,
+                *vector::borrow(&reserves_address, i),
+                paused
+            );
         };
     }
 
     /// @notice Updates the protocol fee on the bridging
+    /// @dev Emits the BridgeProtocolFeeUpdated event
+    /// @param account The account signer of the caller
     /// @param new_bridge_protocol_fee The part of the premium sent to the protocol treasury
     public entry fun update_bridge_protocol_fee(
         account: &signer, new_bridge_protocol_fee: u256
     ) {
         assert!(
             only_pool_admin(signer::address_of(account)),
-            error_config::get_ecaller_not_pool_admin(),
+            error_config::get_ecaller_not_pool_admin()
         );
 
         assert!(
             new_bridge_protocol_fee <= math_utils::get_percentage_factor(),
-            error_config::get_ebridge_protocol_fee_invalid(),
+            error_config::get_ebridge_protocol_fee_invalid()
         );
+
         let old_bridge_protocol_fee = pool::get_bridge_protocol_fee();
         pool::set_bridge_protocol_fee(new_bridge_protocol_fee);
 
@@ -805,57 +870,68 @@ module aave_pool::pool_configurator {
     /// - A part is collected by the protocol reserves
     /// @dev Expressed in bps
     /// @dev The premium is calculated on the total amount borrowed
+    /// @dev Emits the FlashloanPremiumTotalUpdated event
+    /// @param account The account signer of the caller
     /// @param new_flashloan_premium_total The total flashloan premium
     public entry fun update_flashloan_premium_total(
         account: &signer, new_flashloan_premium_total: u128
     ) {
         assert!(
             only_pool_admin(signer::address_of(account)),
-            error_config::get_ecaller_not_pool_admin(),
+            error_config::get_ecaller_not_pool_admin()
         );
 
         assert!(
-            new_flashloan_premium_total <= (math_utils::get_percentage_factor() as u128),
-            error_config::get_eflashloan_premium_invalid(),
+            new_flashloan_premium_total
+                <= (math_utils::get_percentage_factor() as u128),
+            error_config::get_eflashloan_premium_invalid()
         );
 
         let old_flashloan_premium_total = pool::get_flashloan_premium_total();
         pool::update_flashloan_premiums(
-            new_flashloan_premium_total, pool::get_flashloan_premium_to_protocol()
+            new_flashloan_premium_total,
+            pool::get_flashloan_premium_to_protocol()
         );
+
         event::emit(
             FlashloanPremiumTotalUpdated {
                 old_flashloan_premium_total,
                 new_flashloan_premium_total
-            },
+            }
         );
     }
 
     /// @notice Updates the flash loan premium collected by protocol reserves
     /// @dev Expressed in bps
     /// @dev The premium to protocol is calculated on the total flashloan premium
+    /// @dev Emits the FlashloanPremiumToProtocolUpdated event
+    /// @param account The account signer of the caller
     /// @param new_flashloan_premium_to_protocol The part of the flashloan premium sent to the protocol treasury
     public entry fun update_flashloan_premium_to_protocol(
         account: &signer, new_flashloan_premium_to_protocol: u128
     ) {
         assert!(
             only_pool_admin(signer::address_of(account)),
-            error_config::get_ecaller_not_pool_admin(),
+            error_config::get_ecaller_not_pool_admin()
         );
+
         assert!(
             new_flashloan_premium_to_protocol
                 <= (math_utils::get_percentage_factor() as u128),
-            error_config::get_eflashloan_premium_invalid(),
+            error_config::get_eflashloan_premium_invalid()
         );
+
         let old_flashloan_premium_to_protocol = pool::get_flashloan_premium_to_protocol();
         pool::update_flashloan_premiums(
-            pool::get_flashloan_premium_total(), new_flashloan_premium_to_protocol
+            pool::get_flashloan_premium_total(),
+            new_flashloan_premium_to_protocol
         );
+
         event::emit(
             FlashloanPremiumToProtocolUpdated {
                 old_flashloan_premium_to_protocol,
                 new_flashloan_premium_to_protocol
-            },
+            }
         )
     }
 
@@ -864,10 +940,11 @@ module aave_pool::pool_configurator {
         let a_token_address = pool::get_reserve_a_token_address(&reserve_data);
         let reserve_accrued_to_treasury =
             pool::get_reserve_accrued_to_treasury(&reserve_data);
-        let a_token_total_supply = pool::scaled_a_token_total_supply(a_token_address);
+        let a_token_total_supply = pool::a_token_total_supply(a_token_address);
+
         assert!(
             a_token_total_supply == 0 && reserve_accrued_to_treasury == 0,
-            error_config::get_ereserve_liquidity_not_zero(),
+            error_config::get_ereserve_liquidity_not_zero()
         );
     }
 
@@ -876,7 +953,8 @@ module aave_pool::pool_configurator {
         let variable_debt_token_address =
             pool::get_reserve_variable_debt_token_address(&reserve_data);
         let total_debt =
-            pool::scaled_variable_token_total_supply(variable_debt_token_address);
+            pool::variable_debt_token_total_supply(variable_debt_token_address);
+
         assert!(total_debt == 0, error_config::get_ereserve_debt_not_zero())
     }
 
@@ -893,49 +971,11 @@ module aave_pool::pool_configurator {
     }
 
     fun only_asset_listing_or_pool_admins(account: address): bool {
-        acl_manage::is_asset_listing_admin(account) || acl_manage::is_pool_admin(account)
+        acl_manage::is_asset_listing_admin(account)
+            || acl_manage::is_pool_admin(account)
     }
 
     fun only_risk_or_pool_admins(account: address): bool {
         acl_manage::is_risk_admin(account) || acl_manage::is_pool_admin(account)
-    }
-
-    public entry fun configure_reserves(
-        account: &signer,
-        asset: vector<address>,
-        base_ltv: vector<u256>,
-        liquidation_threshold: vector<u256>,
-        liquidation_bonus: vector<u256>,
-        reserve_factor: vector<u256>,
-        borrow_cap: vector<u256>,
-        supply_cap: vector<u256>,
-        borrowing_enabled: vector<bool>,
-        flash_loan_enabled: vector<bool>
-    ) {
-        for (i in 0..vector::length(&asset)) {
-            let asset_address = *vector::borrow(&asset, i);
-            let ltv = *vector::borrow(&base_ltv, i);
-            let threshold = *vector::borrow(&liquidation_threshold, i);
-            let bonus = *vector::borrow(&liquidation_bonus, i);
-            configure_reserve_as_collateral(account, asset_address, ltv, threshold, bonus);
-
-            let is_borrowing_enabled = *vector::borrow(&borrowing_enabled, i);
-            if (is_borrowing_enabled) {
-                set_reserve_borrowing(account, asset_address, true);
-                set_borrow_cap(account, asset_address, *vector::borrow(&borrow_cap, i));
-            };
-
-            set_reserve_flash_loaning(
-                account,
-                asset_address,
-                *vector::borrow(&flash_loan_enabled, i),
-            );
-            set_supply_cap(account, asset_address, *vector::borrow(&supply_cap, i));
-            set_reserve_factor(
-                account,
-                asset_address,
-                *vector::borrow(&reserve_factor, i),
-            );
-        }
     }
 }
