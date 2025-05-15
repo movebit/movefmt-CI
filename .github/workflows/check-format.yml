@@ -1,0 +1,23 @@
+name: MoveFmt CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-formatting:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download movefmt binary
+        run: |
+          curl -L https://github.com/movebit/movefmt/releases/download/v1.0.9/movefmt.beta.v1.0.9-x86_64-unknown-linux-gnu -o movefmt
+          chmod +x movefmt
+
+      - name: Run movefmt diff check
+        run: ./movefmt --emit="diff"
