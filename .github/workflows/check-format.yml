@@ -7,17 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  check-formatting:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Download movefmt binary
-        run: |
-          curl -L https://github.com/movebit/movefmt-CI/releases/download/v0.0.1/movefmt-for-ci2 -o movefmt
-          chmod +x movefmt
-
-      - name: Run movefmt diff check
-        run: ./movefmt --emit="diff"
+  format-check:
+    uses: movebit/movefmt-workflow/.github/workflows/format-check.yml@main
+    with:
+      path: "."  # optional: directory to check format in
