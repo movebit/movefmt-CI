@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [main]
 
+
 jobs:
   format-check:
     uses: movebit/movefmt-workflow/.github/workflows/format-check.yml@main
