@@ -16,7 +16,7 @@ jobs:
 
       - name: Download movefmt binary
         run: |
-          curl -L https://github.com/movebit/movefmt-CI/releases/download/v0.0.1/movefmt-for-ci -o movefmt
+          curl -L https://github.com/movebit/movefmt-CI/releases/download/v0.0.1/movefmt-for-ci2 -o movefmt
           chmod +x movefmt
 
       - name: Run movefmt diff check
